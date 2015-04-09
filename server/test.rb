@@ -212,14 +212,15 @@ class Project
 		@clients[ws] = client;
 	end
 
-	def removeClient(ws) 
-		puts "Remove client -- we should inform chat and document listeners of this event"
-		@clients.each do |websocket, client| 
-			puts YAML.dump(client)
-		end
-		client = @clients.delete(ws);
-		sendToClients("userdc", client.name)
-	end
+def removeClient(ws)
+  puts "Remove client -- we should inform chat and document listeners of this event"
+  client = @clients[ws]
+  client.chats.each do |key, value|
+    echo "Remove client #{client.name} from #{value.roomName}"
+    value.remClient(client)
+  end
+  client = @clients.delete(ws);
+end
 
 	def sendToClients(type, info) 
 		sendAll(info)
