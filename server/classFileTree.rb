@@ -95,6 +95,7 @@ class FileTreeBase
 		return(jsonString)
 
 	end		
+	
 	def htmlTree(start = @fileTree)
 		@outputText = "";
 		if (start != false)

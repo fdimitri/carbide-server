@@ -212,12 +212,15 @@ class Document < DocumentBase
 		#data = jsonMsg['insertDataSingleLine']['data'][0].gsub("\n","")
 		data = jsonMsg['insertDataSingleLine']['data']
 		char = jsonMsg['insertDataSingleLine']['ch'].to_i
+		
 		if (!data.is_a?(String)) 
 			puts "Data was not of type string"
 			puts data.inspect
 		end
+		
 		length = data.length
 		puts "insertDataSingleLine(): Called #{jsonMsg}"
+		
 		if (@data[line].nil?)
 			@data.push(data.to_str);
 		else
@@ -236,6 +239,7 @@ class Document < DocumentBase
 			@data.fetch(line, @str)
 			puts "OK! " + @data.fetch(line)
 		end
+		
 		sendMsg_cInsertDataSingleLine(client, @name, line, data, char, length, @data[line])
 
 	end

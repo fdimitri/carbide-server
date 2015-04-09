@@ -281,44 +281,7 @@ class Project
 		end
 		puts "New client connected: #{rName}"
 		return rName
-	end
-	
-	def sendMsg_cInsertDataSingleLine(client, document, line, data, char, length, ldata)
-		@clientReply = {
-			'replyType' => 'reply_insertDataSingleLine',
-			'status' => TRUE,
-			'hash' => 0xFF,
-			'line' => line,
-			'data' => data,
-			'char' => char,
-			'length' => length,
-			'ldata' => ldata,
-			'document' => document,
-			#Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
-		}
-		@clientString = @clientReply.to_json
-		sendToClientsListeningExcept(client, document, @clientString)
-	end
-	
-	def sendMsg_cDeleteDataSingleLine(client, document, line, data, char, length, ldata)
-		@clientReply = {
-			'replyType' => 'reply_deleteDataSingleLine',
-			'status' => TRUE,
-			'hash' => 0xFF,
-			'line' => line,
-			'data' => data,
-			'char' => char,
-			'length' => length,
-			'ldata' => ldata,
-			'document' => document,
-			#Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
-		}
-		@clientString = @clientReply.to_json
-		sendToClientsListeningExcept(client, document, @clientString)
-
-	end
-	
-
+	end	
 end
 
 

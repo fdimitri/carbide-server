@@ -107,7 +107,7 @@ class ChatChannel
 			'sendMessage' => {
 				'chat' => @roomName,
 				'user' => client.name,
-				'msg' => (jsonMsg['sendMessage'])['msg']
+				'msg' => sanitizeMsg(jsonMsg['sendMessage'])['msg']
 			},
 		}
 		puts "Propogate message: "
@@ -117,6 +117,11 @@ class ChatChannel
 		
 	end
 
+
+  def sanitizeMsg(msg)
+    return(msg.gsub("<","&lt;").gsub(">","&gt;"))
+  end
+  
 	def procMsg_joinChannel(client, jsonmsg)
 		puts "User joining channel, running addClient/Client::addChat"
 		addClient(client, client.websocket)
