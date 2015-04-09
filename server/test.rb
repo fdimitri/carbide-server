@@ -216,7 +216,7 @@ def removeClient(ws)
   puts "Remove client -- we should inform chat and document listeners of this event"
   client = @clients[ws]
   client.chats.each do |key, value|
-    echo "Remove client #{client.name} from #{value.roomName}"
+    puts "Remove client #{client.name} from #{value.roomName}"
     value.remClient(client)
   end
   client = @clients.delete(ws);
