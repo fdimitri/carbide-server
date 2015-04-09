@@ -107,7 +107,7 @@ class ChatChannel
 			'sendMessage' => {
 				'chat' => @roomName,
 				'user' => client.name,
-				'msg' => sanitizeMsg(jsonMsg['sendMessage'])['msg']
+				'msg' => sanitizeMsg((jsonMsg['sendMessage'])['msg'])
 			},
 		}
 		puts "Propogate message: "
