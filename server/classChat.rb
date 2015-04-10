@@ -64,16 +64,15 @@ class ChatChannel
 	end
 	
 	def remClient(client)
-	  client = @clients[client.websocket]
 	  client.removeChat(@roomName)
 		@clients.delete(client.websocket)
 		@roomMsg = {
 			'commandType' => 'chat',
 			'command' => 'userLeave',
 			'userLeave' => {
-        'chat' => @roomName,
-        'user' => client.name,
-     },
+	        		'chat' => @roomName,
+			        'user' => client.name,
+			},
 		}
 		@clientString = @roomMsg.to_json
 		sendToClients(@clientString)
