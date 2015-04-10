@@ -64,11 +64,16 @@ class ChatChannel
 	end
 	
 	def remClient(client)
+	  client = @client[client.websocket]
+	  client.removeChat(@roomName)
 		@clients.delete(client.websocket)
 		@roomMsg = {
-			'msgType' => 'chat_userLeave',
-			'channel' => @roomName,
-			'user' => client.name
+			'commandType' => 'chat',
+			'command' => 'userLeave',
+			'userLeave' => {
+        'chat' => @roomName,
+        'user' => client.name,
+     },
 		}
 		@clientString = @roomMsg.to_json
 		sendToClients(@clientString)
@@ -88,8 +93,7 @@ class ChatChannel
 	end
 	
 	def procMsg_sendMessage(client, jsonMsg)
-		puts "procMsg_sendMessage executing with " + jsonMsg.inspect
-		puts client.inspect
+		puts "procMsg_sendMessage executing"
 		@clientReply = {
 			'commandSet' => 'reply',
 			'commandType' => 'chat',
@@ -131,12 +135,10 @@ class ChatChannel
 
 	def procMsg_leaveChannel(client, jsonmsg) 
 		@clientReply = {
-			'commandSet' => 'reply',
-			'commandType' => 'chat',
-			'reply' => {
-				'leaveChannel' => {
+			'commandSet' => 'chat',
+			'command' => 'leaveChannel',
+			'leaveChannel' => {
 					'status' => TRUE,
-				}
 			}
 		}
 		@clientString = @clientReply.to_json

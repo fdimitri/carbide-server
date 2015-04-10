@@ -87,11 +87,11 @@ class Project
 				@FileTree.procMsg(getClient(ws), jsonString)
 			elsif (!jsonString['commandSet'] || jsonString['commandSet'] == 'base')
 				puts "This message is general context"
-				if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
-					puts "Found a function handler for  #{jsonMsg['command']}"
-					self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg);
+				if (self.respond_to?("procMsg_#{jsonString['command']}"))
+					puts "Found a function handler for  #{jsonString['command']}"
+					self.send("procMsg_#{jsonString['command']}", client, jsonString);
 				elsif
-					puts "There is no function to handle the incoming command #{jsonMsg['command']}"
+					puts "There is no function to handle the incoming command #{jsonString['command']}"
 				end
 			end
 		elsif
