@@ -252,8 +252,8 @@ class Document < DocumentBase
 	
 	# This is almost done, needs some tweaks!
 	def procMsg_deleteDataSingleLine(client, jsonMsg)
-		line = jsonMsg['deleteDataSingleLine']['line']
-		data = jsonMsg['deleteDataSingleLine']['data']
+		line = jsonMsg['deleteDataSingleLine']['line'].to_i
+		data = jsonMsg['deleteDataSingleLine']['data'].to_s
 		char = jsonMsg['deleteDataSingleLine']['ch'].to_i
 		length = data.length
 		puts "deleteDataSingleLine(): Called #{jsonMsg} .. deleting " + data.inspect
@@ -263,7 +263,10 @@ class Document < DocumentBase
 			return FALSE
 		end
 		if (data === "\n") 
+		  puts YAML.dump(@data)
+		  puts "Deleting line at " + (line + 1)
 		  @data.delete_at(line + 1)
+		  puts YAML.dump(@data)
 		  sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
 		end
 		@str = @data.fetch(line).to_str
