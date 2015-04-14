@@ -256,11 +256,11 @@ class Document < DocumentBase
 		data = jsonMsg['deleteDataSingleLine']['data'].to_s
 		char = jsonMsg['deleteDataSingleLine']['ch'].to_i
 		length = data.length
-		deleteDataSingleLine(line,data,char,length)
+		deleteDataSingleLine(client, line,data,char,length)
 	end
 	
-  def deleteDataSingleLine(line,data,char,length)
-    puts "deleteDataSingleLine(): Called #{jsonMsg} .. deleting " + data.inspect
+  def deleteDataSingleLine(client, line,data,char,length)
+    puts "deleteDataSingleLine(): Called  .. deleting " + data.inspect
     if (@data[line].nil?)
       puts "Error: Delete character on line that doesn't exist"
       #client.sendMsg_Fail('deleteDataSingleLine');
@@ -279,7 +279,7 @@ class Document < DocumentBase
     puts "Substr calculated to be " + @substr.inspect
     
     if (@substr == data)
-      if (char > 1)
+      if (char > 0)
         @begstr = @str[0..(char - 1)]
         @endstr = @str[(char + length + 1)..(@str.length)]
       else
