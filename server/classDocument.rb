@@ -275,7 +275,6 @@ class Document < DocumentBase
 	      i += 1
 	      sendMsg_cDeleteLine(client, @name, i)
 	    end
-	  end
 	end
 	
 	def sendMsg_cDeleteLine(client, document, line)
