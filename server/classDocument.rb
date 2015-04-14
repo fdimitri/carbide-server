@@ -259,6 +259,44 @@ class Document < DocumentBase
 		deleteDataSingleLine(client, line,data,char,length)
 	end
 	
+	def procMsg_deleteDataMultiLine(client, jsonMsg)
+	  ml = jsonMsg['deleteDataMultiLine']
+	  startChar = ml['startChar'].to_i
+	  startLine = ml['startLine'].to_i
+	  endChar = ml['endChar'].to_i
+	  endLine = ml['endLine'].to_i
+	  lineData = ml['data']
+	  i = startLine
+	  while (i <= endLine)
+	    puts "Compare line removal"
+	    puts @data.fetch(i)
+	    puts lineData.fetch(i - startLine)
+  	    @data.delete_at(i)
+	      i += 1
+	      sendMsg_cDeleteLine(client, @name, i)
+	    end
+	  end
+	end
+	
+	def sendMsg_cDeleteLine(client, document, line)
+    @clientReply = {
+      'commandSet' => 'document',
+      'command' => 'deleteLine',
+      'targetDocument' => name,
+      'deleteLine' => {
+        'status' => TRUE,
+        'sourceUser' => client.name,
+        'document' => document,
+        'line' => line,
+      },
+      #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
+    }
+    @clientString = @clientReply.to_json
+    @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
+
+	end
+	
+	
   def deleteDataSingleLine(client, line,data,char,length)
     puts "deleteDataSingleLine(): Called  .. deleting " + data.inspect
     if (@data[line].nil?)
