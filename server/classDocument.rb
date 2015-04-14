@@ -262,6 +262,10 @@ class Document < DocumentBase
 			#client.sendMsg_Fail('deleteDataSingleLine');
 			return FALSE
 		end
+		if (data === "\n") 
+		  @data.delete_at(line + 1)
+		  sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
+		end
 		@str = @data.fetch(line).to_str
 		@substr = @str[char..(char + length - 1)]
 		puts "Substr calculated to be " + @substr.inspect
