@@ -210,7 +210,8 @@ class Document < DocumentBase
 	def procMsg_insertDataSingleLine(client, jsonMsg)
 		line = jsonMsg['insertDataSingleLine']['line'];
 		#data = jsonMsg['insertDataSingleLine']['data'][0].gsub("\n","")
-		data = jsonMsg['insertDataSingleLine']['data']
+		odata = jsonMsg['insertDataSingleLine']['data']
+		data = odata.sub("\n", "").sub("\r", "")
 		char = jsonMsg['insertDataSingleLine']['ch'].to_i
 		
 		if (!data.is_a?(String)) 
@@ -220,29 +221,33 @@ class Document < DocumentBase
 		
 		length = data.length
 		puts "insertDataSingleLine(): Called #{jsonMsg}"
-		
-		if (@data[line].nil?)
-			@data.push(data.to_str);
+
+		if (@data[line].nil? || !length)
+			@data.insert(line, data.to_str);
 		else
-			@str = @data.fetch(line).to_str
-			if @str.length < char
-				a = @str.length;
-				while (a < char)
-					a = @str.length
-					@str.insert(a, " ")
-					a += 1
-				end
-				
-				puts "#{@str.length} is less than #{char}.. this may crash"
-			end
-			@str.insert(char, data)
-			@data.fetch(line, @str)
-			puts "OK! " + @data.fetch(line)
+      appendToLine(line, char, data)
 		end
 		
-		sendMsg_cInsertDataSingleLine(client, @name, line, data, char, length, @data[line])
+		sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
 
 	end
+	
+	def appendToLine(line, char, data)
+      @str = @data.fetch(line).to_str
+      if @str.length < char
+        a = @str.length;
+        while (a < char)
+          a = @str.length
+          @str.insert(a, " ")
+          a += 1
+        end
+        
+        puts "#{@str.length} is less than #{char}.. this may crash"
+      end
+      @str.insert(char, data)
+      @data.fetch(line, @str)
+      puts "OK! " + @data.fetch(line)
+  end
 	
 	
 	# This is almost done, needs some tweaks!
@@ -277,6 +282,7 @@ class Document < DocumentBase
 			
 			@data[line]= @str
 			puts "OK! " + @substr + " should match " +  data
+			puts "New string is " + @str
 			puts @data.fetch(line, @str)
 			sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
 			return TRUE
