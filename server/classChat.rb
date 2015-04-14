@@ -67,7 +67,7 @@ class ChatChannel
 	  client.removeChat(@roomName)
 		@clients.delete(client.websocket)
 		@roomMsg = {
-			'commandType' => 'chat',
+			'commandSet' => 'chat',
 			'command' => 'userLeave',
 			'userLeave' => {
 	        		'chat' => @roomName,
