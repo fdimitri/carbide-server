@@ -256,50 +256,61 @@ class Document < DocumentBase
 		data = jsonMsg['deleteDataSingleLine']['data'].to_s
 		char = jsonMsg['deleteDataSingleLine']['ch'].to_i
 		length = data.length
-		puts "deleteDataSingleLine(): Called #{jsonMsg} .. deleting " + data.inspect
-		if (@data[line].nil?)
-			puts "Error: Delete character on line that doesn't exist"
-			#client.sendMsg_Fail('deleteDataSingleLine');
-			return FALSE
-		end
-		if (data === "\n") 
-		  puts YAML.dump(@data)
-		  puts "Deleting line at " + (line + 1)
-		  @data.delete_at(line + 1)
-		  puts YAML.dump(@data)
-		  sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
-		end
-		@str = @data.fetch(line).to_str
-		@substr = @str[char..(char + length - 1)]
-		puts "Substr calculated to be " + @substr.inspect
-		if @substr == data
-			@begstr = @str[0..(char - 1)]
-			@endstr = @str[(char + length + 1)..(@str.length)]
-			if (!(@endstr.nil? || @begstr.nil?))
-				@str = @begstr + @endstr
-			else
-				if !@begstr.nil? && @endstr.nil?
-					@str = @begstr
-				elsif !@endstr.nil? && @begstr.nil?
-					@str = @endstr
-				else
-					@str = ""
-				end
-			end
-			
-			@data[line]= @str
-			puts "OK! " + @substr + " should match " +  data
-			puts "New string is " + @str
-			puts @data.fetch(line, @str)
-			sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
-			return TRUE
-		else
-			puts "Deleted data #{data} did not match data at string position #{char} with length #{length}! Server reports data is #{@substr}"
-			#client.sendMsg_Fail('deleteDataSingleLine');
-			return FALSE
-		end			
+		deleteDataSingleLine(line,data,char,length)
 	end
 	
+  def deleteDataSingleLine(line,data,char,length)
+    puts "deleteDataSingleLine(): Called #{jsonMsg} .. deleting " + data.inspect
+    if (@data[line].nil?)
+      puts "Error: Delete character on line that doesn't exist"
+      #client.sendMsg_Fail('deleteDataSingleLine');
+      return FALSE
+    end
+    if (data === "\n") 
+      puts YAML.dump(@data)
+      puts "Deleting line at " + (line + 1).to_s
+      @data.delete_at(line + 1)
+      puts YAML.dump(@data)
+      sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
+      return true
+    end
+    @str = @data.fetch(line).to_str
+    @substr = @str[char..(char + length - 1)]
+    puts "Substr calculated to be " + @substr.inspect
+    
+    if (@substr == data)
+      if (char > 1)
+        @begstr = @str[0..(char - 1)]
+        @endstr = @str[(char + length + 1)..(@str.length)]
+      else
+        @begstr = ""
+        @endstr = @str[(char + length + 1)..(@str.length)]
+      end
+      if (!(@endstr.nil? || @begstr.nil?))
+        @str = @begstr + @endstr
+      else
+        if (!@begstr.nil? && @endstr.nil?)
+          @str = @begstr
+        elsif (!@endstr.nil? && @begstr.nil?)
+          @str = @endstr
+        else
+          @str = ""
+        end
+      end
+      
+      @data[line]= @str
+      puts "OK! " + @substr + " should match " +  data
+      puts "New string is " + @str
+      puts @data.fetch(line, @str)
+      sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
+      return TRUE
+    else
+      puts "Deleted data #{data} did not match data at string position #{char} with length #{length}! Server reports data is #{@substr}"
+      #client.sendMsg_Fail('deleteDataSingleLine');
+      return FALSE
+    end     
+
+  end	
 	
 	def procMsg_insertLine(client, jsonMsg)
 	end
