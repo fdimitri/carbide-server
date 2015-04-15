@@ -245,7 +245,7 @@ class Document < DocumentBase
   def appendToLine(line, char, data)
     str = @data.fetch(line)
     if (!str)
-    return false
+      return false
     end
     if str.length < char
       a = str.length;
@@ -255,7 +255,7 @@ class Document < DocumentBase
         a += 1
       end
 
-      puts "#{@str.length} is less than #{char}.. this may crash"
+      puts "#{str.length} is less than #{char}.. this may crash"
     end
     str.insert(char, data)
     @data.fetch(line, str)
