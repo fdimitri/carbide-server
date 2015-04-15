@@ -239,19 +239,22 @@ class Document < DocumentBase
   end
 
   def appendToLine(line, char, data)
-    @str = @data.fetch(line).to_str
-    if @str.length < char
-      a = @str.length;
+    str = @data.fetch(line)
+    if (!str)
+      return false
+    end
+    if str.length < char
+      a = str.length;
       while (a < char)
-        a = @str.length
-        @str.insert(a, " ")
+        a = str.length
+        str.insert(a, " ")
         a += 1
       end
 
       puts "#{@str.length} is less than #{char}.. this may crash"
     end
-    @str.insert(char, data)
-    @data.fetch(line, @str)
+    str.insert(char, data)
+    @data.fetch(line, str)
     puts "OK! " + @data.fetch(line)
   end
 
