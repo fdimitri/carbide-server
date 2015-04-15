@@ -225,7 +225,7 @@ class Document < DocumentBase
 		if (@data[line].nil? || !length)
 			@data.insert(line, data.to_str);
 		else
-      appendToLine(line, char, data)
+		      appendToLine(line, char, data)
 		end
 		
 		sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
@@ -270,21 +270,24 @@ class Document < DocumentBase
       @data.delete_at(startLine)
       i += 1
     end
-    sendMsg_cDeleteDataMultiLine(client, @name, i)
+    sendMsg_cDeleteDataMultiLine(client, @name, ml)
   end
 
   def sendMsg_cDeleteDataMultiLine(client, document, ml)
     ml['document'] = document;
     ml['sourceUser'] = client.name;
-    @clientReply = {
+    puts YAML.dump(ml)
+    clientReply = {
       'commandSet' => 'document',
       'command' => 'deleteDataMultiLine',
       'targetDocument' => name,
       'deleteDataMultiLine' => ml,
       #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
     }
-    @clientString = @clientReply.to_json
-    @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
+    puts YAML.dump(clientReply)
+    clientString = clientReply.to_json
+    puts YAML.dump(clientString)
+    @project.sendToClientsListeningExceptWS(client.websocket, document, clientString)
 
   end
 	def sendMsg_cDeleteLine(client, document, line)
