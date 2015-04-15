@@ -221,11 +221,15 @@ class Document < DocumentBase
       puts "odata is a newline.. appendToLine"
       appendToLine(line, char, odata)
       myStr = @data.fetch(line)
-      puts "myStr is " + myStr
-      myArr = myStr.split("\n")
-      puts "myArr is " + myArr.inspect
-    @data.fetch(line, myArr[0])
-    @data.insert(line+1, myArr[1])
+      if (!myStr)
+        puts "@data.fetch(line) didn't return a string"
+      else
+        puts "myStr is " + myStr.inspect
+        myArr = myStr.split("\n")
+        puts "myArr is " + myArr.inspect
+      @data.fetch(line, myArr[0])
+      @data.insert(line+1, myArr[1])
+      end
     end
 
     if (@data[line].nil? || !length)
@@ -241,7 +245,7 @@ class Document < DocumentBase
   def appendToLine(line, char, data)
     str = @data.fetch(line)
     if (!str)
-      return false
+    return false
     end
     if str.length < char
       a = str.length;
