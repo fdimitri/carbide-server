@@ -226,10 +226,14 @@ class Document < DocumentBase
       end
       begStr = myStr[0..(char - 1)]
       endStr = myStr[char..-1]
+      if (@data.fetch(line + 1).is_a?(String))
+        endStr = endStr + @data.fetch(line + 1)
+      end
       puts "begStr is " + begStr.inspect
       puts "endStr is " + endStr.inspect
-    @data.fetch(line, begStr)
-    @data.insert(line+1, endStr)
+      @data.fetch(line, begStr)
+      @data.insert(line+1, endStr)
+      return true
     end
 
     if (@data[line].nil? || !length)
