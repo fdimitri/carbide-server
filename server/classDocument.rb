@@ -239,7 +239,7 @@ class Document < DocumentBase
       puts "Data was not of type string"
       puts data.inspect
     end
-    echo "YAML @data"
+    puts "YAML @data"
     puts YAML.dump(@data)
     length = data.length
     puts "insertDataSingleLine(): Called #{jsonMsg}"
@@ -252,7 +252,7 @@ class Document < DocumentBase
         myStr = ""
         @data.insert(line, myStr)
         @data.insert(line+1, myStr)
-        echo "YAML @data"
+        puts "YAML @data"
         puts YAML.dump(@data)
         sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
         return true
@@ -262,7 +262,9 @@ class Document < DocumentBase
       puts "endStr is " + endStr.inspect      
       puts "begStr is " + begStr.inspect
       puts "Write begstr to " + line.to_s
+      puts "@data.fetch(line) before change is " + @data.fetch(line).to_s
       @data.fetch(line, begStr)
+      puts "@data.fetch(line) after change is " + @data.fetch(line).to_s
       if (endStr)
         puts "Write endstr to " + (line + 1).to_s
         @data.insert((line + 1), endStr)
@@ -272,12 +274,13 @@ class Document < DocumentBase
       end
       puts "data.fetch(line) is " + @data.fetch(line).to_s
       puts "data.fetch(line + 1) is " + @data.fetch(line + 1).to_s
-      echo "YAML @data"
+      puts "YAML @data"
+      puts YAML.dump(@data)
       sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
       return true
     end
 
-    if (@data[line].nil? || !length)
+    if (@data[line].nil?)
       @data.insert(line, data.to_str);
     else
       appendToLine(line, char, data)
@@ -290,7 +293,7 @@ class Document < DocumentBase
   def appendToLine(line, char, data)
     str = @data.fetch(line)
     if (!str)
-    return false
+      return false
     end
     if str.length < char
       a = str.length;
