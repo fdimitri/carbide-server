@@ -226,7 +226,7 @@ class Document < DocumentBase
       end
       begStr = myStr[0..(char - 1)]
       endStr = myStr[char..-1]
-      if (@data.fetch(line + 1).is_a?(String))
+      if (@data.length > (line + 1))
         endStr = endStr + @data.fetch(line + 1)
       end
       puts "begStr is " + begStr.inspect
