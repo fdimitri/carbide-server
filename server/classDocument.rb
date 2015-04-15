@@ -202,7 +202,32 @@ class Document < DocumentBase
     puts @data.inspect
     sendMsg_cInsertDataMultiLine(client, @name, n_startLine, startChar, length, data)
   end
+  
+  def procMsg_insertDataSingleLineOld(client, jsonMsg)
+    line = jsonMsg['insertDataSingleLine']['line'];
+    #data = jsonMsg['insertDataSingleLine']['data'][0].gsub("\n","")
+    odata = jsonMsg['insertDataSingleLine']['data']
+    data = odata.sub("\n", "").sub("\r", "")
+    char = jsonMsg['insertDataSingleLine']['ch'].to_i
+    
+    if (!data.is_a?(String)) 
+      puts "Data was not of type string"
+      puts data.inspect
+    end
+    
+    length = data.length
+    puts "insertDataSingleLine(): Called #{jsonMsg}"
 
+    if (@data[line].nil? || !length)
+      @data.insert(line, data.to_str);
+    else
+      appendToLine(line, char, data)
+    end
+    
+    sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
+
+  end
+  
   def procMsg_insertDataSingleLine(client, jsonMsg)
     line = jsonMsg['insertDataSingleLine']['line'];
     #data = jsonMsg['insertDataSingleLine']['data'][0].gsub("\n","")
@@ -217,12 +242,14 @@ class Document < DocumentBase
 
     length = data.length
     puts "insertDataSingleLine(): Called #{jsonMsg}"
-    if (odata == "\n")
+    if (odata == "\n" && !length)
       puts "odata is a newline.. appendToLine"
       myStr = @data.fetch(line)
       if (!myStr)
-        puts "@data.fetch(line) didn't return a string"
-      return false
+        myStr = ""
+        @data.insert(line, myStr)
+        @data.insert(line+1, myStr)
+        return true
       end
       begStr = myStr[0..(char)]
       endStr = myStr[(char + 1)..-1]
@@ -231,13 +258,15 @@ class Document < DocumentBase
       @data.fetch(line, begStr)
       if (endStr)
         @data.insert((line + 1), endStr)
+      else
+        @data.insert((line + 1), "")
       end
       puts "data.fetch(line) is " + @data.fetch(line).to_s
       return true
     end
 
     if (@data[line].nil? || !length)
-    @data.insert(line, data.to_str);
+      @data.insert(line, data.to_str);
     else
       appendToLine(line, char, data)
     end
