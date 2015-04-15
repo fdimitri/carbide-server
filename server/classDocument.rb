@@ -262,8 +262,8 @@ class Document < DocumentBase
         sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
         return true
       end
-      begStr = myStr[0..(char)]
-      endStr = myStr[(char + 1)..-1]
+      begStr = myStr[0..(char - 1)]
+      endStr = myStr[(char)..-1]
       puts "endStr is " + endStr.inspect      
       puts "begStr is " + begStr.inspect
       puts "@data.fetch(line) before change is " + @data.fetch(line).to_s
