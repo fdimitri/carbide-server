@@ -59,7 +59,9 @@ class Document < DocumentBase
 	
 	def procMsg_getContents(client, jsonMsg)
 		@data.each { |d|
-				d = d.gsub("\n","").gsub("\r","")
+				if (d.is_a?(String))
+					d = d.sub("\n","").sub("\r","")
+				end
 				}
 
 		@clientReply = {
@@ -221,10 +223,13 @@ class Document < DocumentBase
 		
 		length = data.length
 		puts "insertDataSingleLine(): Called #{jsonMsg}"
-    if (data == "\n")
+    if (odata == "\n")
+	puts "odata is a newline.. appendToLine"
       appendToLine(line, char, data)
       myStr = @data.fetch(line)
+	puts "myStr is " + myStr
       myArr = myStr.split("\n")
+	puts "myArr is " + myArr.inspect
       @data.fetch(line, myArr[0])
       @data.insert(line+1, myArr[1])
     end
