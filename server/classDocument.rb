@@ -242,26 +242,34 @@ class Document < DocumentBase
 
     length = data.length
     puts "insertDataSingleLine(): Called #{jsonMsg}"
-    if (odata == "\n" && !length)
-      puts "odata is a newline.. appendToLine"
+    puts "Odata is: " + odata.inspect
+    if ((odata == "\n" || odata == '\n'))
+      puts "odata is a newline.."
       myStr = @data.fetch(line)
       if (!myStr)
+        puts "There was no existing data, just insert lines"
         myStr = ""
         @data.insert(line, myStr)
         @data.insert(line+1, myStr)
+        sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
         return true
       end
       begStr = myStr[0..(char)]
       endStr = myStr[(char + 1)..-1]
       puts "endStr is " + endStr.inspect      
       puts "begStr is " + begStr.inspect
+      puts "Write begstr to " + line.to_s
       @data.fetch(line, begStr)
       if (endStr)
+        puts "Write endstr to " + (line + 1).to_s
         @data.insert((line + 1), endStr)
       else
+        puts "Insert empty string at " + (line + 1).to_s
         @data.insert((line + 1), "")
       end
       puts "data.fetch(line) is " + @data.fetch(line).to_s
+      puts "data.fetch(line + 1) is " + @data.fetch(line + 1).to_s
+      sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
       return true
     end
 
