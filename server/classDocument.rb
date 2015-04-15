@@ -219,17 +219,17 @@ class Document < DocumentBase
     puts "insertDataSingleLine(): Called #{jsonMsg}"
     if (odata == "\n")
       puts "odata is a newline.. appendToLine"
-      appendToLine(line, char, odata)
       myStr = @data.fetch(line)
       if (!myStr)
         puts "@data.fetch(line) didn't return a string"
-      else
-        puts "myStr is " + myStr.inspect
-        myArr = myStr.split("\n")
-        puts "myArr is " + myArr.inspect
-      @data.fetch(line, myArr[0])
-      @data.insert(line+1, myArr[1])
+      return false
       end
+      begStr = myStr[0..(char - 1)]
+      endStr = myStr[char..-1]
+      puts "begStr is " + begStr.inspect
+      puts "endStr is " + endStr.inspect
+    @data.fetch(line, begStr)
+    @data.insert(line+1, endStr)
     end
 
     if (@data[line].nil? || !length)
@@ -245,7 +245,7 @@ class Document < DocumentBase
   def appendToLine(line, char, data)
     str = @data.fetch(line)
     if (!str)
-      return false
+    return false
     end
     if str.length < char
       a = str.length;
