@@ -239,7 +239,8 @@ class Document < DocumentBase
       puts "Data was not of type string"
       puts data.inspect
     end
-
+    echo "YAML @data"
+    puts YAML.dump(@data)
     length = data.length
     puts "insertDataSingleLine(): Called #{jsonMsg}"
     puts "Odata is: " + odata.inspect
@@ -251,6 +252,8 @@ class Document < DocumentBase
         myStr = ""
         @data.insert(line, myStr)
         @data.insert(line+1, myStr)
+        echo "YAML @data"
+        puts YAML.dump(@data)
         sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
         return true
       end
@@ -269,6 +272,7 @@ class Document < DocumentBase
       end
       puts "data.fetch(line) is " + @data.fetch(line).to_s
       puts "data.fetch(line + 1) is " + @data.fetch(line + 1).to_s
+      echo "YAML @data"
       sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
       return true
     end
