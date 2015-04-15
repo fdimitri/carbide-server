@@ -224,15 +224,16 @@ class Document < DocumentBase
         puts "@data.fetch(line) didn't return a string"
       return false
       end
-      begStr = myStr[0..(char - 1)]
-      endStr = myStr[char..-1]
+      begStr = myStr[0..(char)]
+      endStr = myStr[(char + 1)..-1]
       if (@data.length > (line + 1))
         endStr = endStr + @data.fetch(line + 1)
       end
       puts "begStr is " + begStr.inspect
       puts "endStr is " + endStr.inspect
       @data.fetch(line, begStr)
-      @data.insert(line+1, endStr)
+      @data.insert((line + 1), endStr)
+      puts "data.fetch(line) is " + @data.fetch(line).to_s
       return true
     end
 
