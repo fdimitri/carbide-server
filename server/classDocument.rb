@@ -336,9 +336,11 @@ class Document < DocumentBase
     if (data === "\n")
       puts YAML.dump(@data)
       @data.fetch(line, @data.fetch(line).slice!(char))
-      @data.fetch(line, @data.fetch(line) + @data.fetch(line + 1))
-      puts "Deleting line at " + (line + 1).to_s
-      @data.delete_at(line + 1)
+      if (@data.length > (line + 1))
+        @data.fetch(line, @data.fetch(line) + @data.fetch(line + 1))
+        puts "Deleting line at " + (line + 1).to_s
+        @data.delete_at(line + 1)
+      end
       puts YAML.dump(@data)
       sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
     return true
