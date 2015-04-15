@@ -221,6 +221,13 @@ class Document < DocumentBase
 		
 		length = data.length
 		puts "insertDataSingleLine(): Called #{jsonMsg}"
+    if (data == "\n")
+      appendToLine(line, char, data)
+      myStr = @data.fetch(line)
+      myArr = myStr.split("\n")
+      @data.fetch(line, myArr[0])
+      @data.insert(line+1, myArr[1])
+    end
 
 		if (@data[line].nil? || !length)
 			@data.insert(line, data.to_str);
