@@ -246,6 +246,11 @@ class Document < DocumentBase
     puts "Odata is: " + odata.inspect
     if ((odata == "\n" || odata == '\n'))
       puts "odata is a newline.."
+      if (char == 0)
+        @data.insert(line, "")
+        sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
+        return true
+      end
       myStr = @data.fetch(line)
       if (!myStr)
         puts "There was no existing data, just insert lines"
@@ -261,9 +266,11 @@ class Document < DocumentBase
       endStr = myStr[(char + 1)..-1]
       puts "endStr is " + endStr.inspect      
       puts "begStr is " + begStr.inspect
-      puts "Write begstr to " + line.to_s
       puts "@data.fetch(line) before change is " + @data.fetch(line).to_s
-      @data.fetch(line, begStr)
+      puts "Write begstr to " + line.to_s
+      @data.delete_at(line)
+      @data.insert(line, begStr)
+      #@data.fetch(line, begStr)
       puts "@data.fetch(line) after change is " + @data.fetch(line).to_s
       if (endStr)
         puts "Write endstr to " + (line + 1).to_s
