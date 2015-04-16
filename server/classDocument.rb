@@ -386,9 +386,12 @@ class Document < DocumentBase
     end
     if (data === "\n")
       puts YAML.dump(@data)
-      @data.fetch(line, @data.fetch(line).slice!(char))
+      #@data.fetch(line, @data.fetch(line).slice!(char))
       if (@data.length > (line + 1))
-        @data.fetch(line, @data.fetch(line) + @data.fetch(line + 1))
+        oldLine = @data.fetch(line).slice!(char) + @data.fetch(line+1)
+        @data.delete_at(line)
+        @data.insert(line, oldLine)
+        #@data.(line, @data.fetch(line) + @data.fetch(line + 1))
         puts "Deleting line at " + (line + 1).to_s
         @data.delete_at(line + 1)
       end
