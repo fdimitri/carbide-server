@@ -406,10 +406,10 @@ class Document < DocumentBase
     if (@substr == data)
       if (char > 0)
         @begstr = @str[0..(char - 1)]
-        @endstr = @str[(char + length + 1)..(@str.length)]
+        @endstr = @str[(char + length)..(@str.length)]
       else
         @begstr = ""
-        @endstr = @str[(char + length + 1)..(@str.length)]
+        @endstr = @str[(char + length)..(@str.length)]
       end
       if (!(@endstr.nil? || @begstr.nil?))
         @str = @begstr + @endstr
@@ -423,7 +423,7 @@ class Document < DocumentBase
         end
       end
 
-      @data[line]= @str
+      @data[line] = @str
       puts "OK! " + @substr + " should match " +  data
       puts "New string is " + @str
       puts @data.fetch(line, @str)
