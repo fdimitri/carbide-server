@@ -3,12 +3,14 @@ class Client
 	attr_accessor	:name
 	attr_accessor	:chats
 	attr_accessor	:documents
+	attr_accessor	:terms
 	
 	def initialize(websocket)
 		@websocket = websocket
 		@documents = { }
 		@chats = { }
 		@name = ""
+		@terms = { }g
 	end
 	
 	def sendMsg(msg)
@@ -16,21 +18,26 @@ class Client
 	end	
 
 	def addChat(chat)
-		puts "Client::addChat()"
-		puts YAML.dump(chat)
 		@chats[chat] = chat
 	end
 
 	def removeChat(chat)
 		@chats.delete(chat)
 	end
-	
+
+	def addTerm(term)
+		@terms[term] = term
+	end
+
+	def removeTerm(term)
+		@terms.delete(term)
+	end
 	
 	def addDocument(document)
 		@documents[document] = document;
 	end
 	
-	def removeDcoument(document)
+	def removeDocument(document)
 		@documents.delete(document);		
 	end
 	
