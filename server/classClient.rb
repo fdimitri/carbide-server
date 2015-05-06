@@ -10,7 +10,7 @@ class Client
 		@documents = { }
 		@chats = { }
 		@name = ""
-		@terms = { }g
+		@terms = { }
 	end
 	
 	def sendMsg(msg)

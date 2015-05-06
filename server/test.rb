@@ -6,6 +6,7 @@ require './classClient.rb'
 require './classChat.rb'
 require './classFileTree.rb'
 require './classDocument.rb'
+require './classTerminal.rb'
 class String
   def is_json?
     begin
@@ -28,6 +29,7 @@ class Project
 		@chats = { } 
 		@clients = { } 
 		@documents = { }
+		@terminals = { }
 		@projectName = projectName
 		@FileTree = FileTree.new(projectName, self);
 		@FileTree.mkDir("/server/source");
@@ -89,7 +91,7 @@ class Project
 				puts "This message is general context"
 				if (self.respond_to?("procMsg_#{jsonString['command']}"))
 					puts "Found a function handler for  #{jsonString['command']}"
-					self.send("procMsg_#{jsonString['command']}", client, jsonString);
+					self.send("procMsg_#{jsonString['command']}", (ws), jsonString);
 				elsif
 					puts "There is no function to handle the incoming command #{jsonString['command']}"
 				end
@@ -103,12 +105,14 @@ class Project
 
 	
 	def addTerm(termName)
-		term = Document.new(self, documentName);
+		puts "addTerm called with #{termName}"
+		term = Terminal.new(self, termName);
 		@terminals[termName] = term;
-		return getTerminal(gtermName)
+		return (getTerminal(termName))
 	end
 	
 	def getTerminal(termName)
+		puts "getTerminal called with #{termName}"
 		if (@terminals[termName]) 
 			return @terminals[termName];
 		end
@@ -119,12 +123,17 @@ class Project
 	def procMsg_openTerminal(ws,msg)
 		localMsg = msg['openTerminal']
 		termName = localMsg['termName']
+		puts "procMsg Open Terminal #{termName}"
 		if (!getTerminal(termName))
+			puts "Creating terminal"
 			addTerm(termName)
 		end
+		puts YAML.dump(@clients)
 		client = @clients[ws]
+		puts "Set client = @clients(ws)"
 		client.addTerm(termName)
-		@terminals[termName].addClient(client)
+		puts "Adding client to terminal"
+		@terminals[termName].addClient(client,ws)
 	end
 		
 	def procMsg_closeTerminal(ws,msg)

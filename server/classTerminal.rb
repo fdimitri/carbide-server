@@ -1,4 +1,4 @@
-grequire 'pty'
+require 'pty'
 require 'yaml'
 require 'io/console'
 
@@ -110,6 +110,29 @@ class TerminalBase
 			puts "There is no function to handle the incoming command #{jsonMsg['termCommand']}"
 		end
 	end
+	
+	def sendToClients(msg)
+		t = []
+		@clients.each do |websocket, client|
+			t << Thread.new do
+				puts "Thread launched to send message"
+				websocket.send msg
+			end
+		end
+		t.each do |thread|
+			puts "Rejoining send message thread"
+			thread.join
+		end
+	end
 
+	
+	def sendToClient(client, msg)
+		puts "Sending message to client " + msg.inspect
+		client.websocket.send msg
+	end
+	
+	
 end
 	
+class Terminal < TerminalBase
+end
