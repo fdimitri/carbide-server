@@ -100,13 +100,41 @@ class Project
 		end
 
 	end
+
+	
+	def addTerm(termName)
+		term = Document.new(self, documentName);
+		@terminals[termName] = term;
+		return getTerminal(gtermName)
+	end
+	
+	def getTerminal(termName)
+		if (@terminals[termName]) 
+			return @terminals[termName];
+		end
+		return FALSE
+	end
+	
+	
+	def procMsg_openTerminal(ws,msg)
+		localMsg = msg['openTerminal']
+		termName = localMsg['termName']
+		if (!getTerminal(termName))
+			addTerm(termName)
+		end
+		client = @clients[ws]
+		client.addTerm(termName)
+		@terminals[termName].addClient(client)
+	end
+		
+	def procMsg_closeTerminal(ws,msg)
+	end
 	
 	def procMsg_openDocument(ws, msg) 
 		docName = msg["documentName"]
 		client = @clients[ws]
 		client.addDocument(docName)
 		@documents[docname].addClient(client)
-		
 	end
 	
 	def procMsg_closeDocument(ws, msg)
