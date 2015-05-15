@@ -15,18 +15,23 @@ class TerminalBase
 		@po = Thread.new {
 			while 1 do
            	     @output.each_char { |c|
-           	             sendToClientsChar(c)
+          	             sendToClientsChar(c)
            	     }
            	 end
         }	
 	end
 
-	def procMsg_inputChar(client, jsonMsg)
-		localData = jsonMsg['inputChar']
-		@input.print localData['data']
-	end
-	
 	def sendToClientsChar(c)
+		termMsg = {
+			'commandSet' => 'term',
+			'command' => 'putChar',
+			'terminal' => @termName,
+			'putChar' => {
+				'data' => c,
+			},
+		}
+		clientString = termMsg.to_json
+		sendToClients(clientString)
 	end
 
 	def getClient(ws)
@@ -52,6 +57,7 @@ class TerminalBase
 	end
 	
 	def addClient(client, ws)
+		puts "Terminal addClient called"
 		if (@clients[ws]) 
 			puts "This client already exists"
 		end
@@ -60,19 +66,19 @@ class TerminalBase
 			return false
 		end
 		@clients[ws] = client 
-		@clientPropagate = {
+		clientPropagate = {
 			'commandSet' => 'term',
 			'command' => 'userJoin',
+			'terminal' => @termName,
 			'userJoin' => {
-				'term' => @termName,
 				'user' => client.name,
 			},
 		}
 		puts "Propogate message: "
-		puts @clientPropagate.inspect
-		@clientString = @clientPropagate.to_json
-		sendToClients(@clientString)
-		@clientMessage = { 
+		puts clientPropagate.inspect
+		clientString = clientPropagate.to_json
+		sendToClients(clientString)
+		clientMessage = { 
 			'commandSet' => 'term',
 			'command' => 'userList',
 			'userList' => {
@@ -80,7 +86,7 @@ class TerminalBase
 				'term' => @termName,
 			},
 		}
-		sendToClient(client, @clientMessage.to_json)
+		sendToClient(client, clientMessage.to_json)
 	end
 	
 	def remClient(client)
@@ -100,19 +106,21 @@ class TerminalBase
 	
 	def procMsg(client, jsonMsg)
 		puts "Asked to process a message for myself: #{@termName} from client #{client.name}"
-		if (!getClient(client.websocket) && jsonMsg['termCommand'] != 'joinChannel')
+		if (!getClient(client.websocket) && jsonMsg['command'] != 'join')
 			puts "Client has not formally joined the channel -- this is OK in alpha state, adding client implicitly"
 		end
-		if (self.respond_to?("procMsg_#{jsonMsg['termCommand']}"))
-			puts "Found a function handler for  #{jsonMsg['termCommand']}"
-			self.send("procMsg_#{jsonMsg['termCommand']}", client, jsonMsg);
+		if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
+			puts "Found a function handler for  #{jsonMsg['command']}"
+			self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg);
 		elsif
-			puts "There is no function to handle the incoming command #{jsonMsg['termCommand']}"
+			puts "There is no function to handle the incoming command #{jsonMsg['command']}"
 		end
 	end
 	
 	def sendToClients(msg)
 		t = []
+		ccnt = @clients.count
+		puts "Sending msg to #{ccnt} clients"
 		@clients.each do |websocket, client|
 			t << Thread.new do
 				puts "Thread launched to send message"
@@ -135,4 +143,9 @@ class TerminalBase
 end
 	
 class Terminal < TerminalBase
+	def procMsg_inputChar(client, jsonMsg)
+		inputChar = jsonMsg['inputChar']
+		@input.print(inputChar['data'])
+	end
+
 end

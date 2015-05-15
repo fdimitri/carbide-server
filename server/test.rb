@@ -87,6 +87,12 @@ class Project
 				end
 			elsif (jsonString['commandSet'] == 'FileTree')
 				@FileTree.procMsg(getClient(ws), jsonString)
+			elsif (jsonString['commandSet'] == 'term')
+				if (term = getTerminal(jsonString['termTarget']))
+					term.procMsg(getClient(ws), jsonString)
+				else
+					puts "Asked to process a message for terminal that doesnt exist"
+				end
 			elsif (!jsonString['commandSet'] || jsonString['commandSet'] == 'base')
 				puts "This message is general context"
 				if (self.respond_to?("procMsg_#{jsonString['command']}"))
@@ -94,6 +100,12 @@ class Project
 					self.send("procMsg_#{jsonString['command']}", (ws), jsonString);
 				elsif
 					puts "There is no function to handle the incoming command #{jsonString['command']}"
+				end
+
+			else
+				puts "Unrecognized commandSet or commandSet unset"
+				if (jsonString['commandSet'])
+					puts "Command set: #{jsonString['commmandSet']}"
 				end
 			end
 		elsif
@@ -133,7 +145,7 @@ class Project
 		puts "Set client = @clients(ws)"
 		client.addTerm(termName)
 		puts "Adding client to terminal"
-		@terminals[termName].addClient(client,ws)
+		@terminals[termName].addClient(client, ws)
 	end
 		
 	def procMsg_closeTerminal(ws,msg)
