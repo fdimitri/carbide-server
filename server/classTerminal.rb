@@ -2,6 +2,8 @@ require 'pty'
 require 'yaml'
 require 'io/console'
 
+
+
 class TerminalBase
 	attr_accessor	:clients
 	attr_accessor	:termName
@@ -14,9 +16,16 @@ class TerminalBase
 		@output, @input, @pid = PTY.spawn("/bin/bash -l")
 		@po = Thread.new {
 			while 1 do
-           	     @output.each_char { |c|
-          	             sendToClientsChar(c)
-           	     }
+				begin
+					buffer = @output.read_nonblock(1024)
+				rescue IO::WaitReadable
+						IO.select([@output])
+						retry
+				end
+				sendToClientsChar(buffer)
+           	     #@output.each_char { |c|
+          	     #        sendToClientsChar(c)
+           	     #}
            	 end
         }	
 	end
@@ -92,7 +101,7 @@ class TerminalBase
 	def remClient(client)
 	  client.removeTerm(@termName)
 		@clients.delete(client.websocket)
-		@termMsg = {
+		termMsg = {
 			'commandSet' => 'term',
 			'command' => 'userLeave',
 			'userLeave' => {
@@ -100,8 +109,8 @@ class TerminalBase
 			        'user' => client.name,
 			},
 		}
-		@clientString = @termMsg.to_json
-		sendToClients(@clientString)
+		clientString = termMsg.to_json
+		sendToClients(clientString)
 	end
 	
 	def procMsg(client, jsonMsg)
