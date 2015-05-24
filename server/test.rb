@@ -25,6 +25,7 @@ class Project
 	attr_accessor	:documents
 	attr_accessor	:chats
 	attr_accessor	:FileTree
+	
 	def initialize(projectName)
 		@chats = { } 
 		@clients = { } 
@@ -140,10 +141,9 @@ class Project
 			puts "Creating terminal"
 			addTerm(termName)
 		end
-		puts YAML.dump(@clients)
 		client = @clients[ws]
 		puts "Set client = @clients(ws)"
-		client.addTerm(termName)
+		client.addTerm(getTerminal(termName))
 		puts "Adding client to terminal"
 		@terminals[termName].addClient(client, ws)
 	end
@@ -215,6 +215,39 @@ class Project
 		return true
 	end
 
+	def procMsg_getTermListJSON(client = false, jsonMsg = false)
+		counter = 0;
+		jsonString = [
+			'id' => 'termroot',
+			'parent' => '#',
+			'text' => 'Terminals',
+			'type' => 'root',
+			'li_attr' => {
+				'class' => 'jsRoot',
+			},
+		]
+		@terminals.collect{ |c|
+			myJSON = [
+				'id' => 'term' + ++counter.to_s,
+				'parent' => 'termroot',
+				'text' => c.termName,
+				'type' => 'term',
+				'li_attr' => {
+					"class" => 'jsChat',
+				},
+			]
+			jsonString << myJSON
+		}
+		if (client != false)
+			jsonString = jsonString.to_json
+			sendToClient(ws, jsonString)
+			return true
+		end
+		YAML.dump(jsonString);
+		return true
+	end
+
+
 	
 	def addDocument(documentName)
 		document = Document.new(self, documentName);
@@ -261,19 +294,19 @@ class Project
 		@clients[ws] = client;
 	end
 
-def removeClient(ws)
-  puts "Remove client -- we should inform chat and document listeners of this event"
-  client = @clients[ws]
-  client.chats.each do |key, value|
-    puts "Remove client #{client.name} from Chat #{value.roomName}"
-    value.remClient(client)
-  end
-  client.terms.each do |key, value|
-    puts "Remove client #{client.name} from Terminal #{value.roomName}"
-    value.remClient(client)
-  end  	
-  client = @clients.delete(ws);
-end
+	def removeClient(ws)
+  		puts "Remove client -- we should inform chat and document listeners of this event"
+  		client = @clients[ws]
+  		client.chats.each do |key, value|
+    		puts "Remove client #{client.name} from Chat #{value.roomName}"
+    		value.remClient(client)
+  		end
+  		client.terms.each do |key, value|
+    		puts "Remove client #{client.name} from Terminal #{value.termName}"
+		    value.remClient(client)
+  		end  	
+  		client = @clients.delete(ws);
+	end
 
 	def sendToClients(type, info) 
 		sendAll(info)

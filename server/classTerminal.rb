@@ -157,4 +157,18 @@ class Terminal < TerminalBase
 		@input.print(inputChar['data'])
 	end
 
+	def procMsg_leaveTerminal(client, jsonMsg)
+	  remClient(client) 
+		@clientReply = {
+			'commandSet' => 'term',
+			'commandReply' => true,
+			'command' => 'leaveTerminal',
+			'leaveChannel' => {
+					'status' => TRUE,
+			}
+		}
+		@clientString = @clientReply.to_json
+		sendToClient(client, @clientString)		
+	end
+
 end

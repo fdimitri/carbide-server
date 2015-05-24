@@ -1,7 +1,9 @@
 class DocumentBase
+
   attr_accessor :name
   attr_accessor :project
   attr_accessor :clients
+  
   def initialize(project, name)
     @project = project
     @name = name
