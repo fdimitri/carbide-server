@@ -45,6 +45,8 @@ class Project
 		puts @FileTree.htmlTree()
 		puts @FileTree.jsonTree()
 		procMsg_getChatListJSON()
+		addChat('StdDev')
+		addTerm('Default_Terminal')
 	end
 
 	def start(opts = { })
@@ -117,13 +119,7 @@ class Project
 	end
 
 	
-	def addTerm(termName)
-		puts "addTerm called with #{termName}"
-		term = Terminal.new(self, termName);
-		@terminals[termName] = term;
-		return (getTerminal(termName))
-	end
-	
+
 	def getTerminal(termName)
 		puts "getTerminal called with #{termName}"
 		if (@terminals[termName]) 
@@ -132,6 +128,30 @@ class Project
 		return FALSE
 	end
 	
+	def procMsg_createChat(ws,msg)
+		createChat = msg['createChat']
+		if (!getChat(createChat['roomName']))
+			addChat(createChat['roomName'])
+		end
+		client = @clients[ws]
+		clientReply = {
+			'status' => 'true',
+			'key' => createChat['key']
+		}
+	end
+
+	def procMsg_createTerm(ws,msg)
+		createTerm = msg['createTerm']
+		if (!getChat(createTerm['termName']))
+			addTerm(createTerm['termName'])
+		end
+		client = @clients[ws]
+		clientReply = {
+			'status' => 'true',
+			'key' => createTerm['key']
+		}
+	end
+
 	
 	def procMsg_openTerminal(ws,msg)
 		localMsg = msg['openTerminal']
@@ -180,10 +200,11 @@ class Project
 			},
 		}
 		clientString = clientReply.to_json
+
 		sendToClient(ws, clientString)
 	end
 
-	def procMsg_getChatListJSON(client = false, jsonMsg = false)
+	def procMsg_getChatListJSON(ws = false, jsonMsg = false)
 		counter = 0;
 		jsonString = [
 			'id' => 'chatroot',
@@ -194,31 +215,41 @@ class Project
 				'class' => 'jsRoot',
 			},
 		]
-		@chats.collect{ |c|
-			myJSON = [
-				'id' => 'chat' + ++counter.to_s,
+		@chats.each { |key, c|
+			puts "Chats.each: roomName is " + c.roomName
+			counter = counter + 1
+			myJSON = {
+				'id' => c.roomName,
 				'parent' => 'chatroot',
 				'text' => c.roomName,
 				'type' => 'chat',
 				'li_attr' => {
-					"class" => 'jsChat',
+					"class" => 'jsTreeChat',
 				},
-			]
+			}
 			jsonString << myJSON
 		}
-		if (client != false)
+		if (ws != false)
 			jsonString = jsonString.to_json
-			sendToClient(ws, jsonString)
+			clientReply = {
+				'commandSet' => 'chat',
+				'command' => 'setChatTreeJSON',
+				'setChatTreeJSON' => {
+					'chatTree' => jsonString,
+				}
+			}
+			clientString = clientReply.to_json
+			sendToClient(clients[ws], clientString)
 			return true
 		end
 		YAML.dump(jsonString);
 		return true
 	end
 
-	def procMsg_getTermListJSON(client = false, jsonMsg = false)
+	def procMsg_getTermListJSON(ws = false, jsonMsg = false)
 		counter = 0;
 		jsonString = [
-			'id' => 'termroot',
+			'id' => 'terminalroot',
 			'parent' => '#',
 			'text' => 'Terminals',
 			'type' => 'root',
@@ -226,21 +257,29 @@ class Project
 				'class' => 'jsRoot',
 			},
 		]
-		@terminals.collect{ |c|
-			myJSON = [
-				'id' => 'term' + ++counter.to_s,
-				'parent' => 'termroot',
+		@terminals.each { |key, c|
+			myJSON = {
+				'id' => c.termName,
+				'parent' => 'terminalroot',
 				'text' => c.termName,
-				'type' => 'term',
+				'type' => 'terminal',
 				'li_attr' => {
-					"class" => 'jsChat',
+					"class" => 'jsTreeTerminal',
 				},
-			]
+			}
 			jsonString << myJSON
 		}
-		if (client != false)
-			jsonString = jsonString.to_json
-			sendToClient(ws, jsonString)
+		if (ws != false)
+#			jsonString = jsonString.to_json
+			clientReply = {
+				'commandSet' => 'term',
+				'command' => 'setTermTreeJSON',
+				'setTermTreeJSON' => {
+					'termTree' => jsonString,
+				}
+			}
+			clientString = clientReply.to_json
+			sendToClient(clients[ws], clientString)
 			return true
 		end
 		YAML.dump(jsonString);
@@ -262,10 +301,50 @@ class Project
 		puts "Invalid document name: #{documentName}"
 		return FALSE
 	end
+
+	def addTerm(termName)
+		puts "addTerm called with #{termName}"
+		term = Terminal.new(self, termName);
+		@terminals[termName] = term;
+		myJSON = {
+			'commandSet' => 'term',
+			'command' => 'addTerm',
+			'addTerm' => {
+				'node' => {
+					'id' => termName,
+					'parent' => 'terminalroot',
+					'text' => termName,
+					'type' => 'terminal',
+					'li_attr' => {
+						"class" => 'jsTreeTerminal',
+					}
+				}
+			}
+		}
+		sendAll(myJSON.to_json)
+		return (getTerminal(termName))
+	end
+
 	
 	def addChat(chatName)
 		chat = ChatChannel.new(self, chatName)
 		@chats[chatName] = chat
+		myJSON = {
+			'commandSet' => 'chat',
+			'command' => 'addChat',
+			'addChat' => {
+				'node' => {
+					'id' => chatName,
+					'parent' => 'chatroot',
+					'text' => chatName,
+					'type' => 'chat',
+					'li_attr' => {
+						"class" => 'jsTreeChat',
+					}
+				}
+			}
+		}
+		sendAll(myJSON.to_json)
 		return getChat(chatName)
 	end
 	

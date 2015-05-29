@@ -121,7 +121,7 @@ class ChatChannel
 
 
   def sanitizeMsg(msg)
-    return(msg.gsub("<","&lt;").gsub(">","&gt;"))
+    return(msg.gsub("<","&lt;").gsub(">","&gt;").gsub('\n', "<br>"))
   end
   
 	def procMsg_joinChannel(client, jsonmsg)
