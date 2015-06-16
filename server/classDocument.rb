@@ -12,6 +12,9 @@ class DocumentBase
     @data = Array.new(1, "");
     @data.insert(' ');
     @clients = { };
+    @t = { }
+    @rng = Random.new(Time.now.to_i)
+    @nonce = @rng.rand(1..9000)
   end
 
   def addClient(client, ws)
@@ -54,7 +57,7 @@ class DocumentBase
     @data = data.split(/\n/)
   end
 
-  def writeToFS()
+  def writeToFS(thread=false)
     newTime = File.mtime(@baseDirectory + @name)
     if (newTime != @fsTimeStamp)
       puts "WARNING: Attempting to overwrite file " + @baseDirectory + @name
@@ -68,11 +71,18 @@ class DocumentBase
 
     if (!fd)
       puts "Failed to open file #{@name}"
+      if (thread)
+        raise("Unable to open file #{@name}")
+      end
       return FALSE
     end
-    fd.write(@data.join('\n'))
+    fd.write(@data.join("\n"))
     fd.close
     @fsTimeStamp = File.mtime(@baseDirectory + @name)
+    if (thread)
+      Thread.exit
+    end
+    return TRUE
   end
 
 
@@ -89,6 +99,42 @@ class Document < DocumentBase
     if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
       puts "Found a function handler for  #{jsonMsg['command']}"
       self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg);
+      if (/(insert|delete)/.match(jsonMsg['command']))
+        if (@t.length)
+          puts "Still waiting on " + @t.length.to_s + " threads to write.."
+        end
+        #This is overkill as we won't spin off more than one thread per document for writing.. that would be ridiculous
+        #Refactor this to something less inept. We can spin the thread off, but we don't have to keep a hash since we'll never have more than 1
+        wait = false
+        @t.each_pair do |key, thread|
+          puts "Key: " + key.to_s
+          puts "Value: " + YAML.dump(thread)
+          status = thread.status
+          case (status)
+          when false
+            thread.join
+            @t.delete(key)
+          when nil
+            thread.join
+            @t.delete(key)
+          when "run"
+            puts "Waiting on current write thread before spinning out another one"
+            wait = true
+          when "sleep"
+            puts "Waiting on current write thread before spinning out another one"
+            wait = true
+          else
+            puts "Unknown thread status: " + YAML.dump(status)
+          end
+        end
+        if (!wait)
+          newThread =  Thread.new{
+            writeToFS(true)
+          }
+          @t.update({Time.now.to_i.to_s + @nonce.to_s => newThread});
+          @nonce += 1
+        end
+      end
     elsif
     puts "There is no function to handle the incoming command #{jsonMsg['command']}"
     end
