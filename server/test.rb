@@ -21,7 +21,6 @@ end
 
 
 
-
 class Project
 	attr_accessor	:clients
 	attr_accessor	:documents
@@ -465,5 +464,5 @@ end
 
 puts "Starting up.."
 
-myProject = Project.new('Mockup')
+myProject = Project.new('CARBIDE-SERVER')
 myProject.start()

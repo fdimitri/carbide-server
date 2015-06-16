@@ -101,10 +101,8 @@ class Document < DocumentBase
       self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg);
       if (/(insert|delete)/.match(jsonMsg['command']))
         if (@t.length)
-          puts "Still waiting on " + @t.length.to_s + " threads to write.."
+          puts "Still possibly waiting on " + @t.length.to_s + " threads to write.."
         end
-        #This is overkill as we won't spin off more than one thread per document for writing.. that would be ridiculous
-        #Refactor this to something less inept. We can spin the thread off, but we don't have to keep a hash since we'll never have more than 1
         wait = false
         @t.each_pair do |key, thread|
           puts "Key: " + key.to_s
@@ -127,7 +125,9 @@ class Document < DocumentBase
             puts "Unknown thread status: " + YAML.dump(status)
           end
         end
-        if (!wait)
+        if (wait)
+            puts "We were unable to commit these changes to disk due to the last thread not being finished at this time!!!"
+        else
           newThread =  Thread.new{
             writeToFS(true)
           }
