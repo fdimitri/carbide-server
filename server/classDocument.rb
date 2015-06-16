@@ -3,11 +3,12 @@ class DocumentBase
   attr_accessor :name
   attr_accessor :project
   attr_accessor :clients
-  
-  def initialize(project, name)
+
+  def initialize(project, name, baseDirectory)
     @project = project
     @name = name
     @revision = 0
+    @baseDirectory = baseDirectory
     @data = Array.new(1, "");
     @data.insert(' ');
     @clients = { };
@@ -37,9 +38,48 @@ class DocumentBase
 
   def getHash(revision)
     @myString = @data.join('\n')
-    puts "We should generate a hash here for this string: #{@myString}"
+    # puts "We should generate a hash here for this string: #{@myString}"
     return 0xFF
   end
+
+  def readFromFS()
+    fd = File.open(@baseDirectory + @name, "rb");
+    if (!fd)
+      puts "Failed to open file #{@name}"
+      return FALSE
+    end
+    data = fd.read
+    fd.close
+    @fsTimeStamp = File.mtime(@baseDirectory + @name)
+    @data = data.split(/\n/)
+  end
+
+  def writeToFS()
+    newTime = File.mtime(@baseDirectory + @name)
+    if (newTime != @fsTimeStamp)
+      puts "WARNING: Attempting to overwrite file " + @baseDirectory + @name
+      puts "WARNING: File has been modified on FS since changes done in editor"
+      puts "WARNING: Overwriting FS file changes!"
+    else
+      puts "Excellent, file has NOT changed since we read it!"
+    end
+
+    fd = File.open(@baseDirectory + @name, "wb");
+
+    if (!fd)
+      puts "Failed to open file #{@name}"
+      return FALSE
+    end
+    fd.write(@data.join('\n'))
+    fd.close
+    @fsTimeStamp = File.mtime(@baseDirectory + @name)
+  end
+
+
+  def setContents(data)
+    @data = data.split(/\n/)
+  end
+
 
 end
 
@@ -58,6 +98,9 @@ class Document < DocumentBase
     @data.each { |d|
       if (d.is_a?(String))
         d = d.sub("\n","").sub("\r","")
+      else
+        puts "Document::procMsg_getContents ran into an error with the data array -- element is not a string"
+        puts YAML.dump(d)
       end
     }
 
@@ -204,19 +247,19 @@ class Document < DocumentBase
     puts @data.inspect
     sendMsg_cInsertDataMultiLine(client, @name, n_startLine, startChar, length, data)
   end
-  
+
   def procMsg_insertDataSingleLineOld(client, jsonMsg)
     line = jsonMsg['insertDataSingleLine']['line'];
     #data = jsonMsg['insertDataSingleLine']['data'][0].gsub("\n","")
     odata = jsonMsg['insertDataSingleLine']['data']
     data = odata.sub("\n", "").sub("\r", "")
     char = jsonMsg['insertDataSingleLine']['ch'].to_i
-    
-    if (!data.is_a?(String)) 
+
+    if (!data.is_a?(String))
       puts "Data was not of type string"
       puts data.inspect
     end
-    
+
     length = data.length
     puts "insertDataSingleLine(): Called #{jsonMsg}"
 
@@ -225,11 +268,11 @@ class Document < DocumentBase
     else
       appendToLine(line, char, data)
     end
-    
+
     sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
 
   end
-  
+
   def procMsg_insertDataSingleLine(client, jsonMsg)
     line = jsonMsg['insertDataSingleLine']['line'];
     #data = jsonMsg['insertDataSingleLine']['data'][0].gsub("\n","")
@@ -266,7 +309,7 @@ class Document < DocumentBase
       end
       begStr = myStr[0..(char - 1)]
       endStr = myStr[(char)..-1]
-      puts "endStr is " + endStr.inspect      
+      puts "endStr is " + endStr.inspect
       puts "begStr is " + begStr.inspect
       puts "@data.fetch(line) before change is " + @data.fetch(line).to_s
       puts "Write begstr to " + line.to_s

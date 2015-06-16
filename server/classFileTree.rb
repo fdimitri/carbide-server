@@ -13,19 +13,22 @@ class FileTreeBase
 			}
 		}
 	end
-	
+
 	def getBaseName(fileName)
 		fileName = getDirArray(fileName);
 		return fileName.last
 	end
-	
+
 	def getDirectory(fileName)
 		fileName = getDirArray(fileName);
 		fileName = fileName.take(fileName.length - 1)
 		fileName.map
+		if (fileName.drop(1).length == 0)
+			return(['/'])
+		end
 		return fileName.drop(1)
 	end
-	
+
 	def printTree()
 		puts @fileTree.inspect
 		#puts htmlTree(@fileTree)
@@ -35,20 +38,20 @@ class FileTreeBase
 		name += @@idIncrement.to_s
 		@@idIncrement += 1
 		return("ft" + name)
-		
+
 	end
 
 	def jsonTree(start = @fileTree, parent = false)
-		if (parent == false) 
+		if (parent == false)
 			@@idIncrement = 0
 		end
 		jsonString = []
 		if (start != false)
 			start.each do |key, value|
-				if value.class.to_s == 'Hash' 
+				if value.class.to_s == 'Hash'
 					if (key == '/')
 						type = 'root'
-						ec = 'jsTreeRoot'						
+						ec = 'jsTreeRoot'
 						icon = "jstree-folder"
 						parent = "#"
 					elsif (value['type'] == 'directory')
@@ -62,7 +65,7 @@ class FileTreeBase
 						icon = "jstree-file"
 					end
 
-					if (value['niceName']) 
+					if (value['niceName'])
 						name = value['niceName']
 					else
 						name = key
@@ -94,17 +97,17 @@ class FileTreeBase
 		end
 		return(jsonString)
 
-	end		
-	
+	end
+
 	def htmlTree(start = @fileTree)
 		@outputText = "";
 		if (start != false)
 			start.each do |key, value|
-				if value.class.to_s == 'Hash' 
+				if value.class.to_s == 'Hash'
 					if (key == '/')
 						type = 'root'
 						ec = 'jsTreeRoot'
-						
+
 						icon = "jstree-folder"
 					elsif (value['type'] == 'directory')
 						type = 'folder'
@@ -124,7 +127,7 @@ class FileTreeBase
 						htmlEnd = "</li></ul>"
 					end
 
-					if (value['niceName']) 
+					if (value['niceName'])
 						@outputText += "#{htmlType}#{value['niceName']}"
 					else
 						@outputText += "#{htmlType}#{key}"
@@ -144,7 +147,7 @@ class FileTreeBase
 
 		return(@outputText)
 	end
-		
+
 	def htmlTreeChildren(value)
 		outputText = "";
 		value.each do |ckey, cvalue|
@@ -160,27 +163,27 @@ class FileTreeBase
 		return(outputText)
 	end
 
-	def createFile(fileName)
+	def createFile(fileName, data=nil)
 		baseName = getBaseName(fileName)
 		dirList = getDirectory(fileName)
 		if (!dirExists(dirList))
 			puts "Directory does not exist " + dirList.join() + " .."
 			return FALSE
 		end
-		
+
 		puts "createFile() called to create #{fileName} under " + dirList.join('')
 
 		existingDirectories = dirList.take(dirList.length);
 		@start = @fileTree['/'];
 		puts "Existing Directories" + existingDirectories.inspect + " " + existingDirectories.length.to_s
-		if existingDirectories.length > 1
+		if existingDirectories.length > 0
 			existingDirectories.map{ |s|
 				s = s.gsub('/','');
 				if (!@start['children'].nil?)
 					if (!@start['children'][s].nil?)
 						@start = @start['children'][s]
 					else
-						puts "ERROR: start[children][#{s}] was nil!"
+						puts "createFile(): ERROR: start[children][#{s}] was nil!"
 					end
 				end
 			}
@@ -198,19 +201,24 @@ class FileTreeBase
 			@start['children'] = @start['children'].update(newObject);
 		elsif
 			puts "Start has no children, just setting children=newObject"
-			@start['children'] = @start['children'].update(newObject);
+			@start['children'] = Hash.new;
+			@start['children'].update(newObject);
 		end
 		@Project.addDocument(fileName)
-		return TRUE
 
+		if (data)
+			doc = @Project.getDocument(fileName)
+			doc.setContents(data)
+		end
+		return TRUE
 	end
-	
+
 	def rmFile(fileName)
 	end
-	
+
 	def rnFile(fileName, newName)
 	end
-	
+
 	def mvFile(fileName, newName)
 	end
 
@@ -221,16 +229,16 @@ class FileTreeBase
 		#rere.map {|s| puts s.inspect }
 		return rere
 	end
-	
+
 	def mkDir(dirName)
 		rere = getDirArray(dirName)
 		puts rere.inspect
 		i = rere.length - 1
-		
+
 		while (i > 0)
 			puts "In main loop, checking dirExists " + rere.take(rere.length - i).join() + " .. "
 			while dirExists(rere.take(rere.length - i)) && i > 0
-				puts "In while loop!"
+				puts "In while loop! Checking for " + (rere.take(rere.length - i)).join()
 				i -= 1
 			end
 			puts "Calling createDirectory!"
@@ -240,7 +248,7 @@ class FileTreeBase
 		puts " -- Done creating directories -- "
 		puts @fileTree
 	end
-	
+
 	def createDirectory(dirList, dirName)
 		# All but the last directory must exist
 		puts "createDirectory() called to create #{dirName} under #{dirList.inspect}"
@@ -273,37 +281,54 @@ class FileTreeBase
 			@start['children'] = @start['children'].update(newObject);
 		elsif
 			puts "Start has no children, just setting children=newObject"
-			@start['children'] = @start['children'].update(newObject);
+			@start['children'] = Hash.new
+			@start['children'].update(newObject);
 		end
-		
+
 		puts @fileTree.inspect
 	end
-	
+
 	def dirExists(dirList)
+		if (dirList.length == 1 && dirList[0] == '/')
+			return TRUE
+		end
+		if (dirList.length == 0)
+			return TRUE
+		end
 		existingDirectories = dirList;
+		puts "dirExists() dump dirList:"
+		puts YAML.dump(dirList)
+		puts dirList.length
+		puts "-------------------------"
 		lastDir = dirList.drop(dirList.length - 1).map { |s| s.inspect }.join().gsub('"','').gsub('/','');
 		#puts "Last dir: #{lastDir}"
 		@start = @fileTree['/'];
+		puts YAML.dump(existingDirectories)
+		if (existingDirectories[0] == '/')
+			existingDirectories = existingDirectories[1..(existingDirectories.length+1)]
+		end
+		puts existingDirectories.map { |s| puts s + "Iterator" }
 		existingDirectories.map{ |s|
 			s = s.gsub('/','')
-			if (!@start['children'])  
+			if (!@start['children'])
 				puts "Has no children, not even going to look past #{s}"
 				return FALSE
 			end
 			if (!@start['children'].has_key?(s))
-				puts "start has no child named #{s}"
+				puts "start has no child named #{s} -- Directory does not exist!"
 				return FALSE
 			end
 			if (@start['children'].has_key?(s))
 				@start = @start['children'][s]
 				puts "OK.."
 			end
-	
-		} 
+
+		}
 		puts "Full directory tree intact.."
 		return TRUE
-		
 	end
+
+
 end
 
 class FileTree < FileTreeBase
@@ -326,5 +351,5 @@ class FileTree < FileTreeBase
 		}
 		@clientString = @clientReply.to_json
 		@Project.sendToClient(client, @clientString)
-	end	
+	end
 end

@@ -7,6 +7,8 @@ require './classChat.rb'
 require './classFileTree.rb'
 require './classDocument.rb'
 require './classTerminal.rb'
+require './testing/classFileSystem.rb'
+
 class String
   def is_json?
     begin
@@ -25,28 +27,37 @@ class Project
 	attr_accessor	:documents
 	attr_accessor	:chats
 	attr_accessor	:FileTree
-	
+
 	def initialize(projectName)
-		@chats = { } 
-		@clients = { } 
+		@chats = { }
+		@clients = { }
 		@documents = { }
 		@terminals = { }
 		@projectName = projectName
 		@FileTree = FileTree.new(projectName, self);
-		@FileTree.mkDir("/server/source");
-		@FileTree.mkDir("/client/html");
-		@FileTree.createFile("/server/source/test.rb");
-		@FileTree.createFile("/server/source/server.rb");
-		@FileTree.createFile("/server/source/cProject.rb");
-		@FileTree.createFile("/server/source/cFileTree.rb");
-		@FileTree.createFile("/server/source/cDocument.rb");
-		@FileTree.createFile("/client/html/testView.html");
-		@FileTree.printTree()
+    @baseDirectory = "/var/www/html/carbide-server";
+    fsb = FileSystemBase.new(@baseDirectory, @FileTree)
+    testlist = fsb.buildTree()
+    fsb.createFileTree(testlist)
+
+		# @FileTree.mkDir("/server/source");
+		# @FileTree.mkDir("/client/html");
+		# @FileTree.createFile("/server/source/test.rb");
+		# @FileTree.createFile("/server/source/server.rb");
+		# @FileTree.createFile("/server/source/cProject.rb");
+		# @FileTree.createFile("/server/source/cFileTree.rb");
+		# @FileTree.createFile("/server/source/cDocument.rb");
+		# @FileTree.createFile("/client/html/testView.html");
+		# @FileTree.printTree()
 		puts @FileTree.htmlTree()
 		puts @FileTree.jsonTree()
 		procMsg_getChatListJSON()
-		addChat('StdDev')
-		addTerm('Default_Terminal')
+    for n in 0..100
+      #Lots of bash consoles and chats by default to stress test and
+      # to check GUI functionality
+		  addChat('StdDev' + n.to_s)
+		  addTerm('Default_Terminal' + n.to_s)
+    end
 	end
 
 	def start(opts = { })
@@ -62,7 +73,7 @@ class Project
 			jsonString = JSON.parse(msg)
 			if (jsonString['commandSet'] == 'document')
 				puts "This message corresponds to a document"
-				if (!jsonString['documentTarget'].nil?) 
+				if (!jsonString['documentTarget'].nil?)
 					docTarget = jsonString['documentTarget']
 				elsif (!jsonString['document'].nil?)
 					docTarget = jsonString['document']
@@ -113,21 +124,21 @@ class Project
 			end
 		elsif
 			puts "Message was either invalid JSON or another format"
-			
+
 		end
 
 	end
 
-	
+
 
 	def getTerminal(termName)
 		puts "getTerminal called with #{termName}"
-		if (@terminals[termName]) 
+		if (@terminals[termName])
 			return @terminals[termName];
 		end
 		return FALSE
 	end
-	
+
 	def procMsg_createChat(ws,msg)
 		createChat = msg['createChat']
 		if (!getChat(createChat['roomName']))
@@ -152,7 +163,7 @@ class Project
 		}
 	end
 
-	
+
 	def procMsg_openTerminal(ws,msg)
 		localMsg = msg['openTerminal']
 		termName = localMsg['termName']
@@ -167,27 +178,27 @@ class Project
 		puts "Adding client to terminal"
 		@terminals[termName].addClient(client, ws)
 	end
-		
+
 	def procMsg_closeTerminal(ws,msg)
 	end
-	
-	def procMsg_openDocument(ws, msg) 
+
+	def procMsg_openDocument(ws, msg)
 		docName = msg["documentName"]
 		client = @clients[ws]
 		client.addDocument(docName)
 		@documents[docname].addClient(client)
 	end
-	
+
 	def procMsg_closeDocument(ws, msg)
 	end
-	
+
 	def procMsg_hintActiveDocument(ws, msg)
 	end
-	
+
 	def procMsg_getFileTree(ws, msg)
 		return(@fileTree.getFileTreeJSON(ws, msg))
 	end
-	
+
 	def procMsg_getChatList(ws, msg)
 		names = chatNames()
 		clientReply = {
@@ -287,15 +298,15 @@ class Project
 	end
 
 
-	
+
 	def addDocument(documentName)
-		document = Document.new(self, documentName);
+		document = Document.new(self, documentName, @baseDirectory);
 		@documents[documentName] = document;
 		return getDocument(documentName)
 	end
-	
+
 	def getDocument(documentName)
-		if (@documents[documentName]) 
+		if (@documents[documentName])
 			return @documents[documentName];
 		end
 		puts "Invalid document name: #{documentName}"
@@ -325,7 +336,7 @@ class Project
 		return (getTerminal(termName))
 	end
 
-	
+
 	def addChat(chatName)
 		chat = ChatChannel.new(self, chatName)
 		@chats[chatName] = chat
@@ -347,8 +358,8 @@ class Project
 		sendAll(myJSON.to_json)
 		return getChat(chatName)
 	end
-	
-	
+
+
 	def getChat(chatName)
 		if (@chats[chatName])
 			return @chats[chatName];
@@ -356,8 +367,8 @@ class Project
 		puts "Invalid chatroom name: #{chatName}"
 		return FALSE
 	end
-	
-	
+
+
 	def getClient(ws)
 		if (@clients[ws])
 			return(@clients[ws])
@@ -366,7 +377,7 @@ class Project
 			return FALSE
 		end
 	end
-	
+
 	def addClient(ws)
 		client = Client.new(ws);
 		client.name = assignName("User");
@@ -383,11 +394,11 @@ class Project
   		client.terms.each do |key, value|
     		puts "Remove client #{client.name} from Terminal #{value.termName}"
 		    value.remClient(client)
-  		end  	
+  		end
   		client = @clients.delete(ws);
 	end
 
-	def sendToClients(type, info) 
+	def sendToClients(type, info)
 		sendAll(info)
 	end
 
@@ -408,7 +419,7 @@ class Project
 			end
 		end
 	end
-	
+
 	def sendToClientsExcept(oclient, msg)
 		@clients.each do |websocket, client|
 			if (oclient != client)
@@ -416,7 +427,7 @@ class Project
 			end
 		end
 	end
-	
+
 	def sendAll(msg)
 		@clients.each do |websocket, client|
 			websocket.send msg
@@ -427,11 +438,11 @@ class Project
 	def sendToClient(client, msg)
 		client.websocket.send msg
 	end
-	
+
 	def chatNames
 		@chats.collect{|key, c| c.name}.sort
 	end
-	
+
 	def clientNames
 		@clients.collect{|websocket, c| c.name}.sort
 	end
@@ -447,7 +458,7 @@ class Project
 		end
 		puts "New client connected: #{rName}"
 		return rName
-	end	
+	end
 end
 
 
@@ -455,4 +466,4 @@ end
 puts "Starting up.."
 
 myProject = Project.new('Mockup')
-myProject.start() 
+myProject.start()

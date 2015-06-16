@@ -1,7 +1,7 @@
 require 'pty'
 require 'yaml'
 require 'io/console'
-
+require 'termios'
 
 
 class TerminalBase
@@ -12,6 +12,7 @@ class TerminalBase
 		@project = project
 		@termName = termName
 		@clients = { }
+		@sizes = { }
 		puts "Terminal term #{termName} initialized"
 		@output, @input, @pid = PTY.spawn("/bin/bash -l")
 		@po = Thread.new {
@@ -28,6 +29,7 @@ class TerminalBase
            	     #}
            	 end
         }	
+        resizeSelf()
 	end
 
 	def sendToClientsChar(c)
@@ -148,7 +150,21 @@ class TerminalBase
 		client.websocket.send msg
 	end
 	
-	
+	def resizeSelf()
+		minX = 1000
+		minY = 1000
+		@sizes.each do |client, size|
+			if (size['cols'] < minY)
+				minY = size['cols']
+			end
+			if (size['rows'] < minX)
+				minX = size['rows']
+			end
+		end
+		@input.ioctl(Termios::TIOCSWINSZ, [minX,minY,minX,minY].pack("SSSS"))
+		puts "Resizing terminal to #{minX}x#{minY}"
+	end
+
 end
 	
 class Terminal < TerminalBase
@@ -158,17 +174,31 @@ class Terminal < TerminalBase
 	end
 
 	def procMsg_leaveTerminal(client, jsonMsg)
-	  remClient(client) 
-		@clientReply = {
+		remClient(client) 
+		clientReply = {
 			'commandSet' => 'term',
 			'commandReply' => true,
 			'command' => 'leaveTerminal',
-			'leaveChannel' => {
+			'leaveTerminal' => {
 					'status' => TRUE,
 			}
 		}
-		@clientString = @clientReply.to_json
-		sendToClient(client, @clientString)		
+		clientString = clientReply.to_json
+		sendToClient(client, clientString)		
+		@sizes.delete(client)
+	end
+
+	def procMsg_resizeTerminal(client, jsonMsg)
+		puts "procMsg_resizeTerminal called"
+		resizeTerminal = jsonMsg['resizeTerminal']
+		termSize = resizeTerminal['termSize']
+		if (termSize['rows'] && termSize['cols'])
+			@sizes[client] = termSize
+			resizeSelf()
+		else
+			puts "There was no termsize rows/cols.."
+			puts YAML.dump(jsonMsg)
+		end
 	end
 
 end
