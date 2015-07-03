@@ -511,7 +511,7 @@ if (newUsers.count > 0)
 end
 
 myProject = Project.new('CARBIDE-SERVER')
-
+myProject.start()
 
 @DEH = DirectoryEntryHelper.new()
 

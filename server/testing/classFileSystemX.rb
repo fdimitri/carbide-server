@@ -56,7 +56,7 @@ class FileSystemBase
           fd = File.open(@baseDirectory + tree['fullpath'], "rb");
           data = fd.read
           fd.close
-          @fileTree.createFile(tree['name'], data)
+          @fileTree.createFile(tree['name'], 1, data)
           puts "createFile #{tree['name']}"
         else
           @fileTree.createFile(tree['name'])
@@ -94,7 +94,7 @@ class FileSystemBase
           fd = File.open(@baseDirectory + value['fullPath'], "rb");
           data = fd.read
           fd.close
-          @fileTree.createFile(value['fullPath'], data)
+          @fileTree.createFile(value['fullPath'], 1, data)
           puts "createFile #{value['fullPath']} with data"
         else
           @fileTree.createFile(value['fullPath'])

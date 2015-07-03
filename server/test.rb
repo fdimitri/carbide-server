@@ -474,8 +474,5 @@ ActiveRecord::Base.logger = Logger.new('logs/debug.log')
 configuration = YAML::load(IO.read('config/database.yml'))
 puts YAML.dump(configuration)
 c = ActiveRecord::Base.establish_connection(configuration['development'])
-puts YAML.dump(c)
-puts "Exit before initing websocket"
-exit
 myProject = Project.new('CARBIDE-SERVER')
 myProject.start()
