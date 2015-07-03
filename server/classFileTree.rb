@@ -352,4 +352,4 @@ class FileTree < FileTreeBase
 		@clientString = @clientReply.to_json
 		@Project.sendToClient(client, @clientString)
 	end
-end
+end
