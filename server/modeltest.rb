@@ -12,7 +12,7 @@ require './classChat.rb'
 require './classFileTree.rb'
 require './classDocument.rb'
 require './classTerminal.rb'
-require './testing/classFileSystem.rb'
+require './testing/classFileSystemX.rb'
 Dir["./models/*rb"].each {| file| require file }
 
 ActiveRecord::Base.logger = Logger.new('debug.log')
@@ -45,11 +45,12 @@ class Project
 		@documents = { }
 		@terminals = { }
 		@projectName = projectName
-		@FileTree = FileTree.new(projectName, self);
+		@FileTree = FileTreeX.new
+    @FileTree.setOptions(projectName, self)
     @baseDirectory = "/var/www/html/carbide-server";
-    #fsb = FileSystemBase.new(@baseDirectory, @FileTree)
-    #testlist = fsb.buildTree()
-    #fsb.createFileTree(testlist)
+    fsb = FileSystemBase.new(@baseDirectory, @FileTree)
+    testlist = fsb.buildTree()
+    fsb.createFileTree(testlist)
 
 		# @FileTree.mkDir("/server/source");
 		# @FileTree.mkDir("/client/html");
@@ -61,8 +62,8 @@ class Project
 		# @FileTree.createFile("/client/html/testView.html");
 		# @FileTree.printTree()
 		#puts @FileTree.htmlTree()
-		#puts @FileTree.jsonTree()
-		procMsg_getChatListJSON()
+		puts @FileTree.jsonTree()
+		#procMsg_getChatListJSON()
     for n in 0..0
       #Lots of bash consoles and chats by default to stress test and
       # to check GUI functionality
@@ -487,7 +488,7 @@ newUsers = [
 
 
 newDirectories = [
-#  { :curName => 'CARBIDE-SERVER', :owner => nil, :createdBy => User.find_by_email('frankd412@gmail.com')},
+#  { :curName => 'CARBIDE-SERVER', :owner => nil, :createdBy => nil},
 #  { :curName => 'carbide-server', :owner_id => 36, :createdBy => User.find_by_email('frankd412@gmail.com')},
 #  { :curName => 'server', :owner_id => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
 #  { :curName => 'models', :owner_id => 38, :createdBy => User.find_by_email('frankd412@gmail.com')},
@@ -495,13 +496,13 @@ newDirectories = [
 
 
 newFiles = [
-  { :curName => 'LICENSE', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  { :curName => 'nohup.out', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  { :curName => 'README.md', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  { :curName => 'test.html', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  { :curName => 'test.js', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  { :curName => 'test.php', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  { :curName => 'test.sh', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+#  { :curName => 'LICENSE', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+#  { :curName => 'nohup.out', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+#  { :curName => 'README.md', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+#  { :curName => 'test.html', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+#  { :curName => 'test.js', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+#  { :curName => 'test.php', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+#  { :curName => 'test.sh', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
 ]
 if (newUsers.count > 0)
   newUsers.each do |u|
@@ -509,9 +510,13 @@ if (newUsers.count > 0)
   end
 end
 
-@Project = Project.new('CARBIDE-SERVER')
-@DEH = DirectoryEntryHelper.new
-@DEH.setOptions('CARBIDE-SERVER', @Project)
+myProject = Project.new('CARBIDE-SERVER')
+
+
+@DEH = DirectoryEntryHelper.new()
+
+
+@DEH.setOptions('CARBIDE-SERVER', myProject)
 #@Project.start()
 
 
@@ -522,7 +527,7 @@ if (newDirectories.count > 0)
   end
 end
 
-if (true && (newFiles.count > 0))
+if (false && (newFiles.count > 0))
   puts "newFiles.each do.."
   newFiles.each do |d|
     @DEH.create(d)
@@ -530,17 +535,32 @@ if (true && (newFiles.count > 0))
   end
 end
 
-
+# subDirs = [
+#   'config',
+#   'db',
+#   'models',
+#   'testing',
+#   'db/migrate',
+# ]
+#
+# puts "Creating directories.."
+# @DEH.mkDir("/server", 1)
+# subDirs.each do |d|
+#   @DEH.mkDir('/server/' + d, 1)
+# end
+puts "New file tree:"
+puts myProject.FileTree.jsonTree()
+exit
 puts "Testing logins"
 
 frank = UserController.login({:email => 'frankd412@gmail.com', :password => 'bx115'})
 mike = UserController.login({:email => 'mikew@frank-d.info', :password => 'mikew'})
 john = UserController.login({:email => 'john@frank-d.info', :password => 'badpassword'})
 
-puts "There are " + User.count.to_s + " directories in the database"
+puts "There are " + User.count.to_s + " users in the database"
 puts "There are " + DirectoryEntry.count.to_s + " file descriptors in the database"
 
-@DEH.createFile("/carbide-server/test.rb")
+
 
 n = DirectoryEntryHelper.new
 dirList = n.getDirectory("/carbide-server/server/models/user.rb")
