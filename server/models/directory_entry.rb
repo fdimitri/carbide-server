@@ -6,7 +6,7 @@ class DirectoryEntry < ActiveRecord::Base
   has_many :filechanges, class_name: "FileChange", foreign_key: "DirectoryEntry_id"
 
   def create
-    if (params[:owner].is_a(FixNum))
+    if (params[:owner].is_a?(FixNum))
       # If we were passed an id, find the FD by ID
       params[:owner] = DirectoryEntry.find_by_id(params[:owner])
     end
@@ -124,6 +124,27 @@ class DirectoryEntryHelper < DirectoryEntry
 		return {:lastDir => thisdir}
 	end
 
+
+
+  def calcCurrent
+    #This function takes us from revision 0 to current, we have no "key frames", but those will be added in the future to reduce processing time
+    myDocument = [];
+    self.filechanges.each do |change|
+      if (self.respond_to?("cmd_" + change.changeType))
+        myDocument = self.send("cmd_" + change.changeType, myDocument, change)
+      end
+    end
+    puts "calcCurrent gave me:"
+    puts YAML.dump(myDocument)
+    return {:data => myDocument}
+  end
+
+  def cmd_setContents(myDocument, change)
+    myDocument = YAML.load(change.changeData)
+    return(myDocument)
+  end
+
+
   def createFile(fileName, userId=nil, data=nil)
 		baseName = getBaseName(fileName)
 		dirList = getDirectory(fileName)
@@ -134,14 +155,23 @@ class DirectoryEntryHelper < DirectoryEntry
       # design paradigm
 			return false
 		end
-    x = DirectoryEntry.find_by_srcpath(fileName)
+    x = DirectoryEntryHelper.find_by_srcpath(fileName)
     if (x)
       # The file already exists in the db-- this is normal if we did a filesystem scan
       # on a second server boot, etc
 
-      # If the Project is not aware of the document it means we haven't loaded any data for it
-      # This is subject to change in the near future when the server will check the database first..
-      # This is the case where it exists in the DB, but we have no way to hold data in the DB yet.
+      if ((x.filechanges.count == 0) && data)
+        # This file had no data before, but has been seen.. it has 0 changes made to it, so we just load it from disk with "setContents" as our command
+        # All of the changeTypes will directly correlate to existing C->S API calls
+        if (userId == nil)
+          userId = 1
+        end
+        FileChange.create(:changeType => "setContents", :changeData => YAML.dump(data), :startLine => 0, :startChar => 0, :DirectoryEntry => x.id, :revision => 0, :User => userId, :modifiedBy => userId)
+      elsif ((x.filechanges.count > 0))
+        rval = x.calcCurrent()
+        data = rval[:data]
+      end
+
       if (!@Project.getDocument(fileName))
         @Project.addDocument(fileName)
     		if (data)
@@ -263,7 +293,6 @@ class FileTreeX < DirectoryEntryHelper
 
 		if (start != nil)
       start.children.each do |item|
-        #FIX THIS HACK
         if (item.ftype == 'folder')
           type = 'folder'
           ec = 'jsTreeFolder'

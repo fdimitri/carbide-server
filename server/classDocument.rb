@@ -126,7 +126,7 @@ class Document < DocumentBase
           end
         end
         if (wait)
-            puts "We were unable to commit these changes to disk due to the last thread not being finished at this time!!!"
+            puts "We were unable to commit these changes to disk due to the last thread not being finished at this time!"
         else
           newThread =  Thread.new{
             writeToFS(true)
@@ -158,7 +158,7 @@ class Document < DocumentBase
 				'documentRevision' => @revision,
 				'numLines' => @data.length,
 				'docHash' => getHash(@revision),
-				'data' => @data.join("\n"),
+				'data' => @data.join("\n").force_encoding("ISO-8859-1").encode('utf-8'),
 				'document' => @name,
 			}
 		}

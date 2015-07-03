@@ -26,7 +26,7 @@ class FileSystemBase
       data['type'] = 'root'
     end
     Dir.foreach(path) do |entry|
-      next if (entry == '..' || entry == '.')
+      next if (entry == '..' || entry == '.' )
       full_path = File.join(path, entry)
       if File.directory?(full_path)
         newEntry = buildTree(full_path, entry)
@@ -51,7 +51,7 @@ class FileSystemBase
     if (!tree['children'])
       puts tree
       if (tree['type'] == 'file')
-        if ((/\.(rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess)/.match(tree['name'])) || (/Rakefile|Gemfile|README|LICENSE|config|COMMIT_EDITMSG|HEAD|index|desc/.match(tree['name'])))
+        if ((/\.(rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp)$/.match(tree['name'])) || (/akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc/.match(tree['name'])))
           puts "Attempting to open file: " + @baseDirectory + tree['fullpath']
           fd = File.open(@baseDirectory + tree['fullpath'], "rb");
           data = fd.read
@@ -89,7 +89,7 @@ class FileSystemBase
       next if (!(value.is_a?(Hash) || value.is_a?(Array)))
       next if (value['type'] == 'directory')
       if (value['type'] == 'file')
-        if ((/\.(rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess)/.match(value['name'])) || (/Rakefile|Gemfile|README|LICENSE|config|COMMIT_EDITMSG|HEAD|index|desc/.match(value['name'])))
+        if ((/\.(rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp)$/.match(value['name'])) || (/akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc/.match(value['name'])))
           puts "Attempting to open file: " + @baseDirectory + value['fullPath']
           fd = File.open(@baseDirectory + value['fullPath'], "rb");
           data = fd.read

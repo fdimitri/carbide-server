@@ -13,7 +13,9 @@ require './classFileTree.rb'
 require './classDocument.rb'
 require './classTerminal.rb'
 require './testing/classFileSystemX.rb'
-Dir["./models/*rb"].each {| file| require file }
+Dir["./models/*rb"].each {| file|
+  puts file
+  require file }
 
 ActiveRecord::Base.logger = Logger.new('debug.log')
 configuration = YAML::load(IO.read('config/database.yml'))

@@ -11,7 +11,12 @@ class testClass {
 
 
 $tc = new testClass();
-$tc->getSettings();();
+$tv = new testClass("boo");
+
+$tc->getSettings();
+
+$tc->getSettings();
+
 
 
 $tc = new testClass();
