@@ -1,0 +1,40 @@
+
+  <div class="ticketUpdate">
+    <div class="ticketHeader">
+      <div class="ticketCreated">
+        <strong>Created:</strong> <%= ticket_update.created_at.strftime("%m/%d/%y - %H:%M:%S") %>
+      </div>
+      <div class="ticketModified">
+        <strong>Modified:</strong> <%= ticket_update.updated_at.strftime("%m/%d/%y - %H:%M:%S") %>
+      </div>
+      <div style="clear:both;"></div>
+  
+      <div>
+        <h1><%= ticket_update.title %></h1>
+      </div>
+    </div>
+    <div class="ticketStates">
+      <table>
+        <thead>
+            <tr>
+              <th>Submitting User</th>
+              <th>Assigned User</th>
+              <th>Priority</th>
+              <th>State</th>
+            </tr>  
+        </thead>
+        <tbody> 
+          <tr>
+              <td><%= link_to ticket_update.User.userName, ticket_update.User %></td>
+              <td><%= link_to ticket_update.AssignedUser.userName, ticket_update.AssignedUser %></td>
+              <td><%= ticket_update.Priority.name %></td>
+              <td><%= ticket_update.State.name %></td>  
+          </tr>
+        </tbody>
+      </table>    
+      <div class="ticketDescription">
+        <h2>Description:</h2>
+         <%= ticket_update.desc %>
+      </div>
+    </div>
+  </div>

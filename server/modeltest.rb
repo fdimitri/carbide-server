@@ -5,6 +5,7 @@ require 'rubygems'
 require 'active_record'
 require 'logger'
 require 'sqlite3'
+require 'bcrypt'
 
 require './classClient.rb'
 require './classChat.rb'
@@ -13,6 +14,12 @@ require './classDocument.rb'
 require './classTerminal.rb'
 require './testing/classFileSystem.rb'
 Dir["./models/*rb"].each {| file| require file }
+
+ActiveRecord::Base.logger = Logger.new('debug.log')
+configuration = YAML::load(IO.read('config/database.yml'))
+ActiveRecord::Base.establish_connection(configuration['development'])
+
+
 
 class String
   def is_json?
@@ -40,9 +47,9 @@ class Project
 		@projectName = projectName
 		@FileTree = FileTree.new(projectName, self);
     @baseDirectory = "/var/www/html/carbide-server";
-    fsb = FileSystemBase.new(@baseDirectory, @FileTree)
-    testlist = fsb.buildTree()
-    fsb.createFileTree(testlist)
+    #fsb = FileSystemBase.new(@baseDirectory, @FileTree)
+    #testlist = fsb.buildTree()
+    #fsb.createFileTree(testlist)
 
 		# @FileTree.mkDir("/server/source");
 		# @FileTree.mkDir("/client/html");
@@ -53,10 +60,10 @@ class Project
 		# @FileTree.createFile("/server/source/cDocument.rb");
 		# @FileTree.createFile("/client/html/testView.html");
 		# @FileTree.printTree()
-		puts @FileTree.htmlTree()
-		puts @FileTree.jsonTree()
+		#puts @FileTree.htmlTree()
+		#puts @FileTree.jsonTree()
 		procMsg_getChatListJSON()
-    for n in 0..10
+    for n in 0..0
       #Lots of bash consoles and chats by default to stress test and
       # to check GUI functionality
 		  addChat('StdDev' + n.to_s)
@@ -469,13 +476,73 @@ end
 
 
 
-puts "Starting up.."
-ActiveRecord::Base.logger = Logger.new('logs/debug.log')
-configuration = YAML::load(IO.read('config/database.yml'))
-puts YAML.dump(configuration)
-c = ActiveRecord::Base.establish_connection(configuration['development'])
-puts YAML.dump(c)
-puts "Exit before initing websocket"
-exit
-myProject = Project.new('CARBIDE-SERVER')
-myProject.start()
+
+
+
+newUsers = [
+#  { :userName => "FrankD", :firstName => "Frank", :lastName => "DiMitri", :email => "frankd412@gmail.com", :password => "bx115" },
+#  { :userName => "MikeW", :firstName => "Mike", :lastName => "Weird", :email => "mikew@frank-d.info", :password => "mikew" },
+#  { :userName => "jnieves", :firstName => "John", :lastName => "Nieves", :email => "john@frank-d.info", :password => "badpassword" },
+]
+
+
+newDirectories = [
+#  { :curName => 'CARBIDE-SERVER', :owner => nil, :createdBy => User.find_by_email('frankd412@gmail.com')},
+#  { :curName => 'carbide-server', :owner_id => 36, :createdBy => User.find_by_email('frankd412@gmail.com')},
+#  { :curName => 'server', :owner_id => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+#  { :curName => 'models', :owner_id => 38, :createdBy => User.find_by_email('frankd412@gmail.com')},
+]
+
+
+newFiles = [
+  { :curName => 'LICENSE', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+  { :curName => 'nohup.out', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+  { :curName => 'README.md', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+  { :curName => 'test.html', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+  { :curName => 'test.js', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+  { :curName => 'test.php', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+  { :curName => 'test.sh', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
+]
+if (newUsers.count > 0)
+  newUsers.each do |u|
+    a = User.create(u)
+  end
+end
+
+@Project = Project.new('CARBIDE-SERVER')
+@DEH = DirectoryEntryHelper.new
+@DEH.setOptions('CARBIDE-SERVER', @Project)
+#@Project.start()
+
+
+if (newDirectories.count > 0)
+  newDirectories.each do |d|
+    a = DirectoryEntryHelper.create(d)
+    puts YAML.dump(d[:owner])
+  end
+end
+
+if (true && (newFiles.count > 0))
+  puts "newFiles.each do.."
+  newFiles.each do |d|
+    @DEH.create(d)
+    puts YAML.dump(d[:owner])
+  end
+end
+
+
+puts "Testing logins"
+
+frank = UserController.login({:email => 'frankd412@gmail.com', :password => 'bx115'})
+mike = UserController.login({:email => 'mikew@frank-d.info', :password => 'mikew'})
+john = UserController.login({:email => 'john@frank-d.info', :password => 'badpassword'})
+
+puts "There are " + User.count.to_s + " directories in the database"
+puts "There are " + DirectoryEntry.count.to_s + " file descriptors in the database"
+
+@DEH.createFile("/carbide-server/test.rb")
+
+n = DirectoryEntryHelper.new
+dirList = n.getDirectory("/carbide-server/server/models/user.rb")
+puts YAML.dump(dirList)
+puts YAML.dump(n.dirExists(dirList))
