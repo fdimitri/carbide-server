@@ -14,12 +14,6 @@ class DirectoryEntry < ActiveRecord::Base
     @directoryEntry.save!
   end
 
-  def getRootDirectory
-    # There should really only be one directory with no owner -- the root
-    # directory. We'll give the system its own userid.
-    a = DirectoryEntry.find_by_owner_id(nil)
-    return a
-  end
 
 end
 
@@ -27,6 +21,17 @@ class DirectoryEntryHelper < DirectoryEntry
   def setOptions(projName, sProject)
     @ProjectName = projName
     @Project = sProject
+  end
+
+  def getRootDirectory
+    # There should really only be one directory with no owner -- the root
+    # directory. We'll give the system its own userid.
+    a = DirectoryEntry.find_by_srcpath('/')
+    if (!a)
+      DirectoryEntry.create(:curName => @ProjectName, :owner => nil, :createdBy => nil, :srcpath => '/')
+    end
+    a = DirectoryEntry.find_by_srcpath('/')
+    return a
   end
 
   def getBaseName(fileName)
@@ -79,6 +84,20 @@ class DirectoryEntryHelper < DirectoryEntry
     existingDirectories = dirList;
 
     lastDir = dirList.drop(dirList.length - 1).map { |s| s.inspect }.join().gsub('"','').gsub('/','');
+    srcPath = existingDirectories.join()
+    if (srcPath[-1] == '/')
+      srcPath = srcPath[0..(srcPath.length - 2)]
+    end
+    if (srcPath[0] != '/')
+      srcPath = '/' + srcPath
+    end
+
+    puts YAML.dump(srcPath)
+    if (exDir = DirectoryEntry.find_by_srcpath(srcPath))
+      puts "Found by srcPath!"
+      return{:lastDir => exDir}
+    end
+    return(false)
 
     if (existingDirectories[0] == '/')
       # Drop the leading slash, we don't need it
@@ -86,7 +105,7 @@ class DirectoryEntryHelper < DirectoryEntry
     end
 
     rootDir = getRootDirectory()
-    thisdir = nil
+
     if (!rootDir)
       # This should not ever happen.
       puts "@rootDir was not found?"
@@ -94,34 +113,54 @@ class DirectoryEntryHelper < DirectoryEntry
     end
 
     prevdir = rootDir
+    dirArr = Array.new
+    dirArr << {rootDir.id.to_s => rootDir}
+    thisdir = rootDir
 
     existingDirectories.map{ |s|
       s = s.gsub('/','')
-      puts "Checking for existence of #{s}"
-      if (!(thisdir = DirectoryEntry.find_by_curName(s)))
+      if (!(exdir = DirectoryEntry.find_by_curName(s)))
+        puts "There are NO DIRECTORIES by the name of #{s}, returning false"
         # There are NO directories by this name (we have to check for repeats
         # and proper pathing otherwise) -- so we can safely abort all of our
         # other tests
         return false
       end
+
+
+      puts "Checking for existence of #{s}"
+
+      # Iterate through children
+      nextdir = thisdir
       thisdir.children.each do |cdir|
-        # Iterate through children
+        # Ignore files
+        # Bypass if it's not what we're looking for, too
+        # We could probably avoid all of this by constructing srcPath and find_by_srcpath..
+        # But I like to iterate and reiterate.
+        next if (cdir.ftype == 'file')
         next if (cdir.curName != s)
-        # Bypass if it's not what we're looking for
-        if (cdir.curName == s)
-          prevdir = cdir
-        end
+        puts "Iterating child #{cdir.curName}"
+
+        # It is what we're looking for!
         # Set the prev directory to the current directory for the next loop
         # Iteration
+        nextdir = cdir
+        dirArr << {nextdir.id.to_s => nextdir}
       end
-      if (prevdir == thisdir)
+
+      if (nextdir == thisdir)
         # We haven't updated prevdir, so we have a pathing failure
+        puts "Directory pathing failure, return false"
+        puts YAML.dump(dirArr)
         return false
       end
       # If we got here we're on the right path, keep checking
     }
     # The full directory tree inquired about is intact
-    return {:lastDir => thisdir}
+    puts "Directory path intact, return some stuff"
+    puts YAML.dump(dirArr)
+    dirArr.last.each {|key, value| lastDir = value}
+    return {:lastDir => lastDir}
   end
 
 
@@ -233,22 +272,30 @@ class DirectoryEntryHelper < DirectoryEntry
     fullDirectory << dirName
     a = dirExists(fullDirectory)
     if (a != false)
+      puts "createDirectory(): Possible error: This directory #{dirName} has already been created! #{fullDirectory.inspect}"
+      puts YAML.dump(a[:lastDir])
       # The directory has already been created/properly exists, return the directory model to the calling function}
       return a[:lastDir]
     else
+      puts "createDirectory(): Directory does not exist -- #{dirName}, that's good, it means we can create it."
       # We used to have a message here. Once we do some good logging functions we'll put it back in, no more puts
     end
 
     a = dirExists(dirList)
     if (a != false)
       # All but the last directory exist in the correct pathing
+      puts "createDirectory(): dirExists(dirList) was true"
       lastDir = a[:lastDir]
+      puts YAML.dump(lastDir)
       newEntry = {:curName => dirName, :owner => lastDir, :createdBy => User.find_by_id(userId), :ftype => 'folder', :srcpath => dirList.map {|s| s.inspect}.join().gsub('"','') + dirName}
       newDir = DirectoryEntryHelper.create(newEntry)
     else
+      puts "createDirectory(): Some number of directories in dirList did not exist, so we couldn't create the directory"
       # Some of the directories in dirList did not exist so we could not create the newest directory
       return false
     end
+    puts "createDirectory(): Successfully created #{dirName}!"
+    puts YAML.dump(newDir)
     # We successfully created the directory, return the directory model
     return newDir
   end

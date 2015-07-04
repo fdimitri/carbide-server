@@ -14,7 +14,9 @@ class FileSystemBase
   end
 
   def getDirectoriesFromDirectory(directoryName)
+    puts "getDirectoriesFromDirectory(#{directoryName})"
     dirs = Dir.entries(directoryName).select { |f| ((File.directory? f) && f != '.' && f != '..')}
+    puts YAML.dump(dirs)
     return dirs
   end
 
@@ -54,7 +56,7 @@ class FileSystemBase
         if ((/\.(rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp)$/.match(tree['name'])) || (/akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc/.match(tree['name'])))
           puts "Attempting to open file: " + @baseDirectory + tree['fullpath']
           fd = File.open(@baseDirectory + tree['fullpath'], "rb");
-          data = fd.read
+          data = fd.read.force_encoding('utf-8')
           fd.close
           @fileTree.createFile(tree['name'], 1, data)
           puts "createFile #{tree['name']}"
@@ -63,7 +65,7 @@ class FileSystemBase
         end
       elsif (tree['type'] == 'directory')
         @fileTree.mkDir(tree['name'])
-        puts "mkDir #{tree['name']}"
+        puts "createFileTree(): mkDir(1) #{tree['name']}"
         createFileTree(value)
       end
       return
@@ -75,7 +77,7 @@ class FileSystemBase
       next if (!(value.is_a?(Hash) || value.is_a?(Array)))
       next if (value['type'] == 'file')
       if (value['type'] == 'directory')
-        puts "mkDir #{value['fullPath']}"
+        puts "createFileTree(): mkDir(2) #{value['fullPath']}"
         @fileTree.mkDir(value['fullPath'])
         createFileTree(value)
       elsif (value['type'] == 'root')
