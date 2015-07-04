@@ -171,6 +171,16 @@ class Terminal < TerminalBase
 	def procMsg_inputChar(client, jsonMsg)
 		inputChar = jsonMsg['inputChar']
 		@input.print(inputChar['data'])
+		broadcastReply = {
+			'commandSet' => 'term',
+			'commandReply' => true,
+			'command' => 'clientInput',
+			'clientInput' => {
+				'userName' => client.name,
+			}
+		}
+		clientString = broadcastReply.to_json
+		sendToClients(clientString)
 	end
 
 	def procMsg_leaveTerminal(client, jsonMsg)
@@ -186,6 +196,7 @@ class Terminal < TerminalBase
 		clientString = clientReply.to_json
 		sendToClient(client, clientString)
 		@sizes.delete(client)
+		resizeSelf()
 	end
 
 	def procMsg_resizeTerminal(client, jsonMsg)
