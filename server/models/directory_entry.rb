@@ -98,69 +98,6 @@ class DirectoryEntryHelper < DirectoryEntry
       return{:lastDir => exDir}
     end
     return(false)
-
-    if (existingDirectories[0] == '/')
-      # Drop the leading slash, we don't need it
-      existingDirectories = existingDirectories[1..(existingDirectories.length)]
-    end
-
-    rootDir = getRootDirectory()
-
-    if (!rootDir)
-      # This should not ever happen.
-      puts "@rootDir was not found?"
-      return false
-    end
-
-    prevdir = rootDir
-    dirArr = Array.new
-    dirArr << {rootDir.id.to_s => rootDir}
-    thisdir = rootDir
-
-    existingDirectories.map{ |s|
-      s = s.gsub('/','')
-      if (!(exdir = DirectoryEntry.find_by_curName(s)))
-        puts "There are NO DIRECTORIES by the name of #{s}, returning false"
-        # There are NO directories by this name (we have to check for repeats
-        # and proper pathing otherwise) -- so we can safely abort all of our
-        # other tests
-        return false
-      end
-
-
-      puts "Checking for existence of #{s}"
-
-      # Iterate through children
-      nextdir = thisdir
-      thisdir.children.each do |cdir|
-        # Ignore files
-        # Bypass if it's not what we're looking for, too
-        # We could probably avoid all of this by constructing srcPath and find_by_srcpath..
-        # But I like to iterate and reiterate.
-        next if (cdir.ftype == 'file')
-        next if (cdir.curName != s)
-        puts "Iterating child #{cdir.curName}"
-
-        # It is what we're looking for!
-        # Set the prev directory to the current directory for the next loop
-        # Iteration
-        nextdir = cdir
-        dirArr << {nextdir.id.to_s => nextdir}
-      end
-
-      if (nextdir == thisdir)
-        # We haven't updated prevdir, so we have a pathing failure
-        puts "Directory pathing failure, return false"
-        puts YAML.dump(dirArr)
-        return false
-      end
-      # If we got here we're on the right path, keep checking
-    }
-    # The full directory tree inquired about is intact
-    puts "Directory path intact, return some stuff"
-    puts YAML.dump(dirArr)
-    dirArr.last.each {|key, value| lastDir = value}
-    return {:lastDir => lastDir}
   end
 
 
