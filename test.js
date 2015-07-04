@@ -18,9 +18,9 @@
 				console.log(lt);
 			var like_a_boss = [
 			];
-			
+
 				for(i = 0; i++; i<5) {
-				
+
 				}
 				$(editor).attr('ignore', 'FALSE');
 				editor.setTheme("ace/theme/twilight");
@@ -34,7 +34,7 @@
 				var statusJSON = {
 					"commandSet": "document",
 					"command": "getContents",
-					"targetDocument": $(editor).attr('srcPath'), 
+					"targetDocument": $(editor).attr('srcPath'),
 					"getContents": {
 						"document": $(editor).attr('srcPath'),
 					},
@@ -57,8 +57,8 @@ function THISFUNCTION (j, ab, c) {
     return 0;
 }
 
-test = THISFUNCTION()	
-	
+test = THISFUNCTION()
+
 $.fn.buildAce = function() { };
 
 
@@ -85,36 +85,3 @@ var servers = {
     }
   ]
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

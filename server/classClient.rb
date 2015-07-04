@@ -4,7 +4,7 @@ class Client
 	attr_accessor	:chats
 	attr_accessor	:documents
 	attr_accessor	:terms
-	
+
 	def initialize(websocket)
 		@websocket = websocket
 		@documents = { }
@@ -12,10 +12,10 @@ class Client
 		@name = ""
 		@terms = { }
 	end
-	
+
 	def sendMsg(msg)
 		@websocket.send msg
-	end	
+	end
 
 	def addChat(chat)
 		@chats[chat] = chat
@@ -32,15 +32,15 @@ class Client
 	def removeTerm(term)
 		@terms.delete(term)
 	end
-	
+
 	def addDocument(document)
 		@documents[document] = document;
 	end
-	
+
 	def removeDocument(document)
-		@documents.delete(document);		
+		@documents.delete(document);
 	end
-	
+
 	def listeningToDocument(document)
 		return TRUE
 		if (@documents.has_key?(document))

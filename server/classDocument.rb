@@ -31,10 +31,10 @@ class DocumentBase
 
   def getRevisionData(revision)
     if (revision == @revision)
-    return @data
+      return @data
     else
       puts "This is NYI behavior -- #{revision} does not match #{@revision}"
-    return 0
+      return 0
     end
 
   end
@@ -58,6 +58,8 @@ class DocumentBase
   end
 
   def writeToFS(thread=false)
+    #disable this for now
+    return false
     newTime = File.mtime(@baseDirectory + @name)
     if (newTime != @fsTimeStamp)
       puts "WARNING: Attempting to overwrite file " + @baseDirectory + @name
@@ -126,7 +128,7 @@ class Document < DocumentBase
           end
         end
         if (wait)
-            puts "We were unable to commit these changes to disk due to the last thread not being finished at this time!"
+          puts "We were unable to commit these changes to disk due to the last thread not being finished at this time!"
         else
           newThread =  Thread.new{
             writeToFS(true)
@@ -136,7 +138,7 @@ class Document < DocumentBase
         end
       end
     elsif
-    puts "There is no function to handle the incoming command #{jsonMsg['command']}"
+      puts "There is no function to handle the incoming command #{jsonMsg['command']}"
     end
   end
 
@@ -151,17 +153,17 @@ class Document < DocumentBase
     }
 
     @clientReply = {
-			'commandSet' => 'document',
-			'command' => 'documentSetContents',
-			'targetDocument' => @name,
-			'documentSetContents' => {
-				'documentRevision' => @revision,
-				'numLines' => @data.length,
-				'docHash' => getHash(@revision),
-				'data' => @data.join("\n").force_encoding("ISO-8859-1").encode('utf-8'),
-				'document' => @name,
-			}
-		}
+      'commandSet' => 'document',
+      'command' => 'documentSetContents',
+      'targetDocument' => @name,
+      'documentSetContents' => {
+        'documentRevision' => @revision,
+        'numLines' => @data.length,
+        'docHash' => getHash(@revision),
+        'data' => @data.join("\n").force_encoding("ISO-8859-1").encode('utf-8'),
+        'document' => @name,
+      }
+    }
     @clientString = @clientReply.to_json
     @project.sendToClient(client, @clientString)
     puts "getContents(): Called #{jsonMsg}"
@@ -172,13 +174,13 @@ class Document < DocumentBase
 
   def procMsg_getInfo(client, jsonMsg)
     @clientReply = {
-			'replyType' => 'reply_getInfo',
-			'documentInfo' => {
-				'documentRevision' => @revision,
-				'numLines' =>  @data.length,
-				'docHash' => getHash(@revision),
-			}
-		}
+      'replyType' => 'reply_getInfo',
+      'documentInfo' => {
+        'documentRevision' => @revision,
+        'numLines' =>  @data.length,
+        'docHash' => getHash(@revision),
+      }
+    }
     @clientString = @clientReply.to_json
     @project.sendToClient(client, @clientString)
     puts "getInfo(): Called #{jsonMsg}"
@@ -188,43 +190,43 @@ class Document < DocumentBase
 
   def sendMsg_cInsertDataSingleLine(client, document, line, data, char, length, ldata)
     @clientReply = {
-			'commandSet' => 'document',
-			'command' => 'insertDataSingleLine',
-			'targetDocument' => document,
-			'insertDataSingleLine' => {
-				'status' => TRUE,
-				'hash' => 0xFF,
-				'line' => line,
-				'data' => data,
-				'char' => char,
-				'length' => length,
-				'ldata' => ldata,
-				'document' => document,
-			},
-			#Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
-		}
+      'commandSet' => 'document',
+      'command' => 'insertDataSingleLine',
+      'targetDocument' => document,
+      'insertDataSingleLine' => {
+        'status' => TRUE,
+        'hash' => 0xFF,
+        'line' => line,
+        'data' => data,
+        'char' => char,
+        'length' => length,
+        'ldata' => ldata,
+        'document' => document,
+      },
+      #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
+    }
     @clientString = @clientReply.to_json
     @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
   end
 
   def sendMsg_cDeleteDataSingleLine(client, document, line, data, char, length, ldata)
     @clientReply = {
-			'commandSet' => 'document',
-			'command' => 'deleteDataSingleLine',
-			'targetDocument' => document,
-			'deleteDataSingleLine' => {
-				'status' => TRUE,
-				'hash' => 0xFF,
-				'sourceUser' => client.name,
-				'line' => line,
-				'data' => data,
-				'char' => char,
-				'length' => length,
-				'ldata' => ldata,
-				'document' => document,
-			},
-			#Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
-		}
+      'commandSet' => 'document',
+      'command' => 'deleteDataSingleLine',
+      'targetDocument' => document,
+      'deleteDataSingleLine' => {
+        'status' => TRUE,
+        'hash' => 0xFF,
+        'sourceUser' => client.name,
+        'line' => line,
+        'data' => data,
+        'char' => char,
+        'length' => length,
+        'ldata' => ldata,
+        'document' => document,
+      },
+      #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
+    }
     @clientString = @clientReply.to_json
     @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
 
@@ -232,21 +234,21 @@ class Document < DocumentBase
 
   def sendMsg_cInsertDataMultiLine(client, document, startLine, startChar, length, data)
     @clientReply = {
-			'commandSet' => 'document',
-			'command' => 'insertDataMultiLine',
-			'targetDocument' => name,
-			'insertDataMultiLine' => {
-				'status' => TRUE,
-				'hash' => 0xFF,
-				'sourceUser' => client.name,
-				'startLine' => startLine,
-				'startChar' => startChar,
-				'numLines' => length,
-				'data' => data,
-				'document' => document,
-			},
-			#Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
-		}
+      'commandSet' => 'document',
+      'command' => 'insertDataMultiLine',
+      'targetDocument' => name,
+      'insertDataMultiLine' => {
+        'status' => TRUE,
+        'hash' => 0xFF,
+        'sourceUser' => client.name,
+        'startLine' => startLine,
+        'startChar' => startChar,
+        'numLines' => length,
+        'data' => data,
+        'document' => document,
+      },
+      #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
+    }
     @clientString = @clientReply.to_json
     @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
   end
@@ -260,7 +262,7 @@ class Document < DocumentBase
     puts "insertDataMultiLine(): Called #{jsonMsg}"
 
     if (@data[startLine].nil?)
-    @data.push(data[0].to_str);
+      @data.push(data[0].to_str);
     else
       str = @data.fetch(startLine).to_str
       if str.length < startChar
@@ -283,7 +285,7 @@ class Document < DocumentBase
       startLine = startLine + 1
       puts cline
       if (@data[startLine].nil?)
-      @data.insert(startLine, cline.to_s);
+        @data.insert(startLine, cline.to_s);
       else
         @data.insert(startLine, cline.to_s);
         puts "Need to write function handler for existing data"
@@ -385,7 +387,6 @@ class Document < DocumentBase
     end
 
     sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
-
   end
 
   def appendToLine(line, char, data)
@@ -465,7 +466,6 @@ class Document < DocumentBase
     }
     @clientString = @clientReply.to_json
     @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
-
   end
 
   def deleteDataSingleLine(client, line,data,char,length)
@@ -488,7 +488,7 @@ class Document < DocumentBase
       end
       puts YAML.dump(@data)
       sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
-    return true
+      return true
     end
     @str = @data.fetch(line).to_str
     @substr = @str[char..(char + length - 1)]
@@ -543,18 +543,16 @@ class Document < DocumentBase
       puts "Revision same, no OT required"
       if !@data[line]
         puts "This is a new line"
-      @data.push(data)
+        @data.push(data)
       else
         puts "This line exists"
         if (!@data.fetch(line).nil?)
-        @data.fetch(line, @data.fetch(line).insert(char, data))
-        #puts @data.fetch(line)
+          @data.fetch(line, @data.fetch(line).insert(char, data))
+          #puts @data.fetch(line)
         else
-
-        @data.fetch(line, @data.fetch(line).insert(char, data))
-        #puts @data.fetch(line)
+          @data.fetch(line, @data.fetch(line).insert(char, data))
+          #puts @data.fetch(line)
         end
-
       end
       @revision += 1
       return TRUE

@@ -7,7 +7,7 @@ class FileChange < ActiveRecord::Base
     puts "Entering create function"
     puts YAML.dump(params)
     if (params[:User].is_a?(Fixnum))
-        params[:User] = User.find_by_id(params[:User])
+      params[:User] = User.find_by_id(params[:User])
     end
 
     if (params[:modifiedBy].is_a?(Fixnum))

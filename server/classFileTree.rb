@@ -190,10 +190,10 @@ class FileTreeBase
 		end
 		newObject = {
 			baseName => {
-					'type' => 'file',
-					'revision' => 0,
-					'document' => 'NYI',
-					'srcPath' => fileName,
+				'type' => 'file',
+				'revision' => 0,
+				'document' => 'NYI',
+				'srcPath' => fileName,
 			}
 		}
 		if !@start['children'].nil?
@@ -271,9 +271,9 @@ class FileTreeBase
 		end
 		newObject = {
 			dirName => {
-					'type' => 'directory',
-					'children' => {
-					},
+				'type' => 'directory',
+				'children' => {
+				},
 			}
 		}
 		if !@start['children'].nil?

@@ -7,7 +7,7 @@ require 'termios'
 class TerminalBase
 	attr_accessor	:clients
 	attr_accessor	:termName
-	
+
 	def initialize(project, termName)
 		@project = project
 		@termName = termName
@@ -20,16 +20,16 @@ class TerminalBase
 				begin
 					buffer = @output.read_nonblock(1024)
 				rescue IO::WaitReadable
-						IO.select([@output])
-						retry
+					IO.select([@output])
+					retry
 				end
 				sendToClientsChar(buffer)
-           	     #@output.each_char { |c|
-          	     #        sendToClientsChar(c)
-           	     #}
-           	 end
-        }	
-        resizeSelf()
+				#@output.each_char { |c|
+				#        sendToClientsChar(c)
+				#}
+			end
+		}
+		resizeSelf()
 	end
 
 	def sendToClientsChar(c)
@@ -53,7 +53,7 @@ class TerminalBase
 			return FALSE
 		end
 	end
-	
+
 	def getClientByName(name)
 		@clients.each do |websocket, client|
 			if (client.name == name)
@@ -62,21 +62,21 @@ class TerminalBase
 		end
 		return false
 	end
-	
+
 	def getClientNames
 		@clients.collect{|websocket, c| c.name}.sort
 	end
-	
+
 	def addClient(client, ws)
 		puts "Terminal addClient called"
-		if (@clients[ws]) 
+		if (@clients[ws])
 			puts "This client already exists"
 		end
 		if (getClientByName(client.name))
 			puts "This client already exists by name"
 			return false
 		end
-		@clients[ws] = client 
+		@clients[ws] = client
 		clientPropagate = {
 			'commandSet' => 'term',
 			'command' => 'userJoin',
@@ -89,7 +89,7 @@ class TerminalBase
 		puts clientPropagate.inspect
 		clientString = clientPropagate.to_json
 		sendToClients(clientString)
-		clientMessage = { 
+		clientMessage = {
 			'commandSet' => 'term',
 			'command' => 'userList',
 			'userList' => {
@@ -99,22 +99,22 @@ class TerminalBase
 		}
 		sendToClient(client, clientMessage.to_json)
 	end
-	
+
 	def remClient(client)
-	  client.removeTerm(@termName)
+		client.removeTerm(@termName)
 		@clients.delete(client.websocket)
 		termMsg = {
 			'commandSet' => 'term',
 			'command' => 'userLeave',
 			'userLeave' => {
-	        		'term' => @termName,
-			        'user' => client.name,
+				'term' => @termName,
+				'user' => client.name,
 			},
 		}
 		clientString = termMsg.to_json
 		sendToClients(clientString)
 	end
-	
+
 	def procMsg(client, jsonMsg)
 		puts "Asked to process a message for myself: #{@termName} from client #{client.name}"
 		if (!getClient(client.websocket) && jsonMsg['command'] != 'join')
@@ -127,7 +127,7 @@ class TerminalBase
 			puts "There is no function to handle the incoming command #{jsonMsg['command']}"
 		end
 	end
-	
+
 	def sendToClients(msg)
 		t = []
 		ccnt = @clients.count
@@ -144,12 +144,12 @@ class TerminalBase
 		end
 	end
 
-	
+
 	def sendToClient(client, msg)
 		puts "Sending message to client " + msg.inspect
 		client.websocket.send msg
 	end
-	
+
 	def resizeSelf()
 		minX = 1000
 		minY = 1000
@@ -166,7 +166,7 @@ class TerminalBase
 	end
 
 end
-	
+
 class Terminal < TerminalBase
 	def procMsg_inputChar(client, jsonMsg)
 		inputChar = jsonMsg['inputChar']
@@ -174,17 +174,17 @@ class Terminal < TerminalBase
 	end
 
 	def procMsg_leaveTerminal(client, jsonMsg)
-		remClient(client) 
+		remClient(client)
 		clientReply = {
 			'commandSet' => 'term',
 			'commandReply' => true,
 			'command' => 'leaveTerminal',
 			'leaveTerminal' => {
-					'status' => TRUE,
+				'status' => TRUE,
 			}
 		}
 		clientString = clientReply.to_json
-		sendToClient(client, clientString)		
+		sendToClient(client, clientString)
 		@sizes.delete(client)
 	end
 
