@@ -1,3 +1,5 @@
+#
+
 class Client
 	attr_accessor	:websocket
 	attr_accessor	:name

@@ -175,6 +175,7 @@ class Terminal < TerminalBase
 			'commandSet' => 'term',
 			'commandReply' => true,
 			'command' => 'clientInput',
+			'terminal' => @termName,
 			'clientInput' => {
 				'userName' => client.name,
 			}

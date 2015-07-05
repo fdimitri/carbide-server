@@ -92,15 +92,27 @@ class DirectoryEntryHelper < DirectoryEntry
       srcPath = '/' + srcPath
     end
 
-    puts YAML.dump(srcPath)
+    if (exDir = DirectoryEntry.find_by_srcpath(srcPath))
+      puts "Found by srcPath!"
+      return{:lastDir => exDir}
+    end
+
+    return(false)
+  end
+
+  def fileExists(srcPath)
+    if (srcPath[0] != '/')
+      srcPath = '/' + srcPath
+    end
+    if (srcPath[-1] == '/')
+      srcPath = srcPath[0..(srcPath.length - 2)]
+    end
     if (exDir = DirectoryEntry.find_by_srcpath(srcPath))
       puts "Found by srcPath!"
       return{:lastDir => exDir}
     end
     return(false)
   end
-
-
 
   def calcCurrent
     #This function takes us from revision 0 to current, we have no "key frames", but those will be added in the future to reduce processing time
@@ -214,7 +226,7 @@ class DirectoryEntryHelper < DirectoryEntry
       # The directory has already been created/properly exists, return the directory model to the calling function}
       return a[:lastDir]
     else
-      puts "createDirectory(): Directory does not exist -- #{dirName}, that's good, it means we can create it."
+      puts "createDirectory(): Directory does not exist -- #{dirName}, that's good, it means we can possibly create it (if the preceding directories exist)."
       # We used to have a message here. Once we do some good logging functions we'll put it back in, no more puts
     end
 

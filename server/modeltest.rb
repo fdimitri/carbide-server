@@ -6,6 +6,12 @@ require 'active_record'
 require 'logger'
 require 'sqlite3'
 require 'bcrypt'
+require 'rails-erd'
+
+Dir["./class*rb"].each { |file|
+  puts file
+  require file
+}
 
 require './classClient.rb'
 require './classChat.rb'
@@ -478,35 +484,13 @@ class Project
   end
 end
 
-
-
-
-
-
 newUsers = [
-  #  { :userName => "FrankD", :firstName => "Frank", :lastName => "DiMitri", :email => "frankd412@gmail.com", :password => "bx115" },
-  #  { :userName => "MikeW", :firstName => "Mike", :lastName => "Weird", :email => "mikew@frank-d.info", :password => "mikew" },
-  #  { :userName => "jnieves", :firstName => "John", :lastName => "Nieves", :email => "john@frank-d.info", :password => "badpassword" },
+#    { :userName => "FrankD", :firstName => "Frank", :lastName => "DiMitri", :email => "frankd412@gmail.com", :password => "bx115" },
+#    { :userName => "MikeW", :firstName => "Mike", :lastName => "Weird", :email => "mikew@frank-d.info", :password => "mikew" },
+#    { :userName => "jnieves", :firstName => "John", :lastName => "Nieves", :email => "john@frank-d.info", :password => "badpassword" },
 ]
 
 
-newDirectories = [
-  #  { :curName => 'CARBIDE-SERVER', :owner => nil, :createdBy => nil},
-  #  { :curName => 'carbide-server', :owner_id => 36, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  #  { :curName => 'server', :owner_id => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  #  { :curName => 'models', :owner_id => 38, :createdBy => User.find_by_email('frankd412@gmail.com')},
-]
-
-
-newFiles = [
-  #  { :curName => 'LICENSE', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  #  { :curName => 'nohup.out', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  #  { :curName => 'README.md', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  #  { :curName => 'test.html', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  #  { :curName => 'test.js', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  #  { :curName => 'test.php', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-  #  { :curName => 'test.sh', :owner => 37, :createdBy => User.find_by_email('frankd412@gmail.com')},
-]
 if (newUsers.count > 0)
   newUsers.each do |u|
     a = User.create(u)
@@ -520,10 +504,9 @@ myProject.start()
 
 
 @DEH.setOptions('CARBIDE-SERVER', myProject)
-#@Project.start()
 
 
-if (newDirectories.count > 0)
+if (false && (newDirectories.count > 0))
   newDirectories.each do |d|
     a = DirectoryEntryHelper.create(d)
     puts YAML.dump(d[:owner])
