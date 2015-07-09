@@ -49,6 +49,12 @@ class Project
   attr_accessor	:chats
   attr_accessor	:FileTree
 
+  def readTree()
+    fsb = FileSystemBase.new(@baseDirectory, @FileTree)
+    testlist = fsb.buildTree()
+    fsb.createFileTree(testlist)
+  end
+
   def initialize(projectName)
     @chats = { }
     @clients = { }
@@ -58,10 +64,7 @@ class Project
     @FileTree = FileTreeX.new
     @FileTree.setOptions(projectName, self)
     @baseDirectory = "/var/www/html/carbide-server";
-    fsb = FileSystemBase.new(@baseDirectory, @FileTree)
-    testlist = fsb.buildTree()
-    fsb.createFileTree(testlist)
-
+    readTree()
     # @FileTree.mkDir("/server/source");
     # @FileTree.mkDir("/client/html");
     # @FileTree.createFile("/server/source/test.rb");
@@ -498,17 +501,27 @@ if (newUsers.count > 0)
   end
 end
 
+@myProject = nil
+@webServer = nil
+@myProject = Project.new('CARBIDE-SERVER')
+puts "Using directory " + File.expand_path(File.dirname(__FILE__))
+@webServer = WebServer.new(6400, File.expand_path(File.dirname(__FILE__)))
+
+myProjectThread = Thread.new {
+  @myProject.start()
+}
+
+@webServer.registerProject(@myProject)
+
+
 webServerThread = Thread.new {
-  puts "Using directory " + File.expand_path(File.dirname(__FILE__)) + "/uploads"
-  myWebServer = WebServer.new(6400, File.expand_path(File.dirname(__FILE__)) + "/uploads")
+  @webServer.start()
   puts YAML.dump(myWebServer)
 }
 
-myProjectThread = Thread.new {
-  myProject = Project.new('CARBIDE-SERVER')
-  myProject.start()
-  puts YAML.dump(myProject)
-}
+
+
+
 puts webServerThread.status
 puts myProjectThread.status
 
@@ -518,6 +531,8 @@ while true do
   sleep 1
 end
 
+webServerThread.exit
+myProjectThread.exit
 @DEH = DirectoryEntryHelper.new()
 
 

@@ -131,15 +131,21 @@ class DirectoryEntryHelper < DirectoryEntry
   end
 
 
-  def createFile(fileName, userId=nil, data=nil)
+  def createFile(fileName, userId=nil, data=nil, mkdirp = false)
     baseName = getBaseName(fileName)
     dirList = getDirectory(fileName)
     if (!(a = dirExists(dirList)))
-      puts "Directory does not exist " + dirList.join() + " .."
-      puts "Could not create file #{fileName} under non-existing directory"
-      # We could implicitly mkDir() here, but I don't think that's a good
-      # design paradigm
-      return false
+      if (!mkdirp)
+        puts "Directory does not exist " + dirList.join() + " .."
+        puts "Could not create file #{fileName} under non-existing directory"
+        return false
+      else
+        rval = mkDir(dirList.join(''))
+  			if (!rval)
+  				puts "createFile() failed to create Directory!"
+  				return FALSE
+  			end
+      end      
     end
     x = DirectoryEntryHelper.find_by_srcpath(fileName)
     if (!x)
