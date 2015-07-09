@@ -89,7 +89,12 @@ class DocumentBase
 
 
   def setContents(data)
-    @data = data.split(/\n/)
+    if (data.is_a?(String))
+      @data = data.split(/\n/)
+    else
+      puts "Document::setContents(): Data was not a string!?"
+      puts YAML.dump(data)
+    end
   end
 
 

@@ -13,8 +13,6 @@ class DirectoryEntry < ActiveRecord::Base
     @directoryEntry = DirectoryEntry.new(params)
     @directoryEntry.save!
   end
-
-
 end
 
 class DirectoryEntryHelper < DirectoryEntry
@@ -40,7 +38,7 @@ class DirectoryEntryHelper < DirectoryEntry
   end
 
   def create(params)
-    if (params[:owner].is_a?(FixNum))
+    if (params[:owner].is_a?(Fixnum))
       params[:owner] = DirectoryEntry.find_by_id(params[:owner])
     end
     params.each do |key, value|
@@ -93,7 +91,7 @@ class DirectoryEntryHelper < DirectoryEntry
     end
 
     if (exDir = DirectoryEntry.find_by_srcpath(srcPath))
-      puts "Found by srcPath!"
+      #puts "Found by srcPath!"
       return{:lastDir => exDir}
     end
 
@@ -108,7 +106,7 @@ class DirectoryEntryHelper < DirectoryEntry
       srcPath = srcPath[0..(srcPath.length - 2)]
     end
     if (exDir = DirectoryEntry.find_by_srcpath(srcPath))
-      puts "Found by srcPath!"
+      #puts "Found by srcPath!"
       return{:lastDir => exDir}
     end
     return(false)
@@ -122,12 +120,12 @@ class DirectoryEntryHelper < DirectoryEntry
         myDocument = self.send("cmd_" + change.changeType, myDocument, change)
       end
     end
-    puts "calcCurrent gave me:"
-    puts YAML.dump(myDocument)
+    puts "calcCurrent gave me an " + YAML.dump(myDocument).to_s.length.to_s  + " byte document"
     return {:data => myDocument}
   end
 
   def cmd_setContents(myDocument, change)
+    puts "cmd_setContents " + self.srcpath
     myDocument = YAML.load(change.changeData)
     return(myDocument)
   end
@@ -144,48 +142,51 @@ class DirectoryEntryHelper < DirectoryEntry
       return false
     end
     x = DirectoryEntryHelper.find_by_srcpath(fileName)
+    if (!x)
+      puts "Couldn't find file by srcpath: #{fileName} in DB -- creating entry"
+      # The file is NOT in the DB yet, add it!
+      lastDir = a[:lastDir]
+      newEntry = {:curName => baseName, :owner => lastDir, :createdBy => User.find_by_id(userId), :ftype => 'file', :srcpath => fileName }
+      DirectoryEntryHelper.create(newEntry)
+      x = DirectoryEntryHelper.find_by_srcpath(fileName)
+    end
     if (x)
       # The file already exists in the db-- this is normal if we did a filesystem scan
       # on a second server boot, etc
-
+      #puts "We have recorded " + x.filechanges.count.to_s + " filechanges to #{fileName}"
+      if (data)
+        puts "We were called with data, only setting data if filechanges.count == 0"
+      end
       if ((x.filechanges.count == 0) && data)
         # This file had no data before, but has been seen.. it has 0 changes made to it, so we just load it from disk with "setContents" as our command
         # All of the changeTypes will directly correlate to existing C->S API calls
+        puts "Filechange.create setContents data since x.filechanges.count == 0"
         if (userId == nil)
           userId = 1
         end
         FileChange.create(:changeType => "setContents", :changeData => YAML.dump(data), :startLine => 0, :startChar => 0, :DirectoryEntry => x.id, :revision => 0, :User => userId, :modifiedBy => userId)
-      elsif ((x.filechanges.count > 0))
+      elsif (x.filechanges.count > 0)
+        # The database takes priority over the filesystem, although we may change this once we have a diff system in (so filesystem modifications affect the database)
+        puts "Current filechanges.count: " + x.filechanges.count.to_s
+        puts "Caling x.calcCurrent()"
         rval = x.calcCurrent()
         data = rval[:data]
+        puts "Taking calcCurrent() and setting data to it"
       end
-
-      if (!@Project.getDocument(fileName))
-        @Project.addDocument(fileName)
-        if (data)
-          doc = @Project.getDocument(fileName)
-          doc.setContents(data)
-        end
-        return true
-        # createFile was technically a success
-      end
-      return false
-      # createFile failed due to file already existing -- this shouldn't happen.
     end
 
-    # The file is NOT in the DB yet, add it!
-    lastDir = a[:lastDir]
-    newEntry = {:curName => baseName, :owner => lastDir, :createdBy => User.find_by_id(userId), :ftype => 'file', :srcpath => fileName }
+    if (!@Project.getDocument(fileName))
+      @Project.addDocument(fileName)
+    end
 
-    DirectoryEntryHelper.create(newEntry)
-
-    @Project.addDocument(fileName)
-    if (data)
+    if (data.is_a?(String) || data)
+      puts "Calling getDocument/setContents"
       doc = @Project.getDocument(fileName)
       doc.setContents(data)
     end
     return true
   end
+
 
   def mkDir(dirName, userId=nil)
     rere = getDirArray(dirName)
@@ -208,10 +209,11 @@ class DirectoryEntryHelper < DirectoryEntry
   end
 
 
+
   def createDirectory(dirList, dirName, userId=nil)
     # All but the last directory must exist, as opposed to mkdir which will automagically create directories a la "mkdir -p"
     # Ie if you want /server/testing/logs, you'd need to create /server, then /server/testing, then /server/testing/logs when calling this function
-    # To make it slightly easier it takes an array ["/server","/testing"] as the first argument, these directories should exist (and we check for that)
+    # To make it slightly easier it takes an array ["/", "server","testing"] as the first argument, these directories should exist (and we check for that)
     # And it takes the new subdirectory name as the second argument, with the userId of the person creating the directory as an optional 3rd argument
     # userId may stay nil -- it will show up as "system generated" in that case
     puts "createDirectory() called to create #{dirName} under #{dirList.inspect}"

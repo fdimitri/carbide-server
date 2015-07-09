@@ -18,6 +18,7 @@ require './classChat.rb'
 require './classFileTree.rb'
 require './classDocument.rb'
 require './classTerminal.rb'
+require './classWebServer.rb'
 require './testing/classFileSystemX.rb'
 Dir["./models/*rb"].each {| file|
   puts file
@@ -71,7 +72,7 @@ class Project
     # @FileTree.createFile("/client/html/testView.html");
     # @FileTree.printTree()
     #puts @FileTree.htmlTree()
-    puts @FileTree.jsonTree()
+    #puts @FileTree.jsonTree()
     #procMsg_getChatListJSON()
     for n in 0..0
       #Lots of bash consoles and chats by default to stress test and
@@ -332,7 +333,7 @@ class Project
     if (@documents[documentName])
       return @documents[documentName];
     end
-    puts "Invalid document name: #{documentName}"
+    #puts "Invalid document name: #{documentName}"
     return FALSE
   end
 
@@ -497,8 +498,25 @@ if (newUsers.count > 0)
   end
 end
 
-myProject = Project.new('CARBIDE-SERVER')
-myProject.start()
+webServerThread = Thread.new {
+  puts "Using directory " + File.expand_path(File.dirname(__FILE__)) + "/uploads"
+  myWebServer = WebServer.new(6400, File.expand_path(File.dirname(__FILE__)) + "/uploads")
+  puts YAML.dump(myWebServer)
+}
+
+myProjectThread = Thread.new {
+  myProject = Project.new('CARBIDE-SERVER')
+  myProject.start()
+  puts YAML.dump(myProject)
+}
+puts webServerThread.status
+puts myProjectThread.status
+
+while true do
+  puts webServerThread.status
+  puts myProjectThread.status
+  sleep 1
+end
 
 @DEH = DirectoryEntryHelper.new()
 
@@ -535,8 +553,6 @@ end
 #   @DEH.mkDir('/server/' + d, 1)
 # end
 puts "New file tree:"
-puts myProject.FileTree.jsonTree()
-exit
 puts "Testing logins"
 
 frank = UserController.login({:email => 'frankd412@gmail.com', :password => 'bx115'})
@@ -545,10 +561,3 @@ john = UserController.login({:email => 'john@frank-d.info', :password => 'badpas
 
 puts "There are " + User.count.to_s + " users in the database"
 puts "There are " + DirectoryEntry.count.to_s + " file descriptors in the database"
-
-
-
-n = DirectoryEntryHelper.new
-dirList = n.getDirectory("/carbide-server/server/models/user.rb")
-puts YAML.dump(dirList)
-puts YAML.dump(n.dirExists(dirList))
