@@ -7,7 +7,7 @@ require 'logger'
 require 'sqlite3'
 require 'bcrypt'
 require 'rails-erd'
-
+require 'mysql2'
 Dir["./class*rb"].each { |file|
   puts file
   require file
@@ -25,11 +25,9 @@ Dir["./models/*rb"].each {| file|
   require file
 }
 
-ActiveRecord::Base.logger = Logger.new('debug.log')
+#ActiveRecord::Base.logger = Logger.new('debug.log')
 configuration = YAML::load(IO.read('config/database.yml'))
 ActiveRecord::Base.establish_connection(configuration['development'])
-
-
 
 class String
   def is_json?
@@ -489,9 +487,9 @@ class Project
 end
 
 newUsers = [
-#    { :userName => "FrankD", :firstName => "Frank", :lastName => "DiMitri", :email => "frankd412@gmail.com", :password => "bx115" },
-#    { :userName => "MikeW", :firstName => "Mike", :lastName => "Weird", :email => "mikew@frank-d.info", :password => "mikew" },
-#    { :userName => "jnieves", :firstName => "John", :lastName => "Nieves", :email => "john@frank-d.info", :password => "badpassword" },
+    { :userName => "FrankD", :firstName => "Frank", :lastName => "DiMitri", :email => "frankd412@gmail.com", :password => "bx115" },
+    { :userName => "MikeW", :firstName => "Mike", :lastName => "Weird", :email => "mikew@frank-d.info", :password => "mikew" },
+    { :userName => "jnieves", :firstName => "John", :lastName => "Nieves", :email => "john@frank-d.info", :password => "badpassword" },
 ]
 
 
@@ -510,7 +508,7 @@ puts "Using directory " + File.expand_path(File.dirname(__FILE__))
 myProjectThread = Thread.new {
   @myProject.start()
 }
-
+puts "Registering myProject with webServer"
 @webServer.registerProject(@myProject)
 
 
@@ -518,7 +516,7 @@ webServerThread = Thread.new {
   @webServer.start()
   puts YAML.dump(myWebServer)
 }
-
+puts "All done! Now we gogogo!"
 
 
 

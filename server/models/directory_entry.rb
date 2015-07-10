@@ -1,14 +1,21 @@
 class DirectoryEntry < ActiveRecord::Base
   # Some really cool ActiveRecord stuff!
-  belongs_to :owner, class_name: "DirectoryEntry"
-  belongs_to :createdBy, class_name: "User"
-  has_many :children, class_name: "DirectoryEntry", foreign_key: "owner_id"
+  belongs_to :owner, :class_name => "DirectoryEntry", :foreign_type => "DirectoryEntry", :foreign_key => "id"
+  belongs_to :createdBy, class_name: "User", primary_key: "createdBy_id", foreign_key: "id"
+  has_many :children, class_name: "DirectoryEntry", foreign_key: "owner_id", foreign_type: "DirectoryEntry"
   has_many :filechanges, class_name: "FileChange", foreign_key: "DirectoryEntry_id"
+  after_initialize :mutexes
+
+  def mutexes
+    @dirMutex = Mutex.new
+    @createFileMutex = Mutex.new
+    @crdirMutex = Mutex.new
+  end
 
   def create
-    if (params[:owner].is_a?(FixNum))
+    if (params[:owner_id].is_a?(Fixnum))
       # If we were passed an id, find the FD by ID
-      params[:owner] = DirectoryEntry.find_by_id(params[:owner])
+      #params[:owner_id] = DirectoryEntry.find_by_id(params[:owner_id])
     end
     @directoryEntry = DirectoryEntry.new(params)
     @directoryEntry.save!
@@ -26,7 +33,7 @@ class DirectoryEntryHelper < DirectoryEntry
     # directory. We'll give the system its own userid.
     a = DirectoryEntry.find_by_srcpath('/')
     if (!a)
-      DirectoryEntry.create(:curName => @ProjectName, :owner => nil, :createdBy => nil, :srcpath => '/')
+      DirectoryEntry.create(:curName => @ProjectName, :owner_id => nil, :createdBy => nil, :srcpath => '/')
     end
     a = DirectoryEntry.find_by_srcpath('/')
     return a
@@ -38,8 +45,8 @@ class DirectoryEntryHelper < DirectoryEntry
   end
 
   def create(params)
-    if (params[:owner].is_a?(Fixnum))
-      params[:owner] = DirectoryEntry.find_by_id(params[:owner])
+    if (params[:owner_id].is_a?(Fixnum))
+      params[:owner_id] = DirectoryEntry.find_by_id(params[:owner_id])
     end
     params.each do |key, value|
       puts "#{key} has " + value.class.to_s
@@ -56,20 +63,32 @@ class DirectoryEntryHelper < DirectoryEntry
     if (fileName.drop(1).length == 0)
       return(['/'])
     end
-    return fileName.drop(1)
+    return fileName
   end
 
   def getDirArray(dirName)
-    # This is actually bad regex for a Directory Array.. not sure why I did
-    # exactly this, as it doesn't make sense now. Refactor this.
     rere = dirName.split(/(?<=[\/])/)
-    #rere = rere.map {|s| s = s.to_s.gsub('/','')}
+    #rere = dirName.split(/\//)
+    #rere = rere[1..(rere.length - 1)].map {|s| s = s.gsub('/','')}
     rere.delete("");
+
+    if (!rere || !rere.length)
+      rere = ['/']
+    end
+    puts "rere: "  + rere.inspect.to_s
+    puts YAML.dump(rere)
     #rere.map {|s| puts s.inspect }
     return rere
   end
 
   def dirExists(dirList)
+		@dirMutex.synchronize {
+			return(dirExistsBase(dirList))
+		}
+	end
+
+
+  def dirExistsBase(dirList)
     if (dirList.length == 1 && dirList[0] == '/')
       # The root directory always exists! Theoretically.
       return {:lastDir => getRootDirectory() }
@@ -130,8 +149,20 @@ class DirectoryEntryHelper < DirectoryEntry
     return(myDocument)
   end
 
-
   def createFile(fileName, userId=nil, data=nil, mkdirp = false)
+		puts "createFile(): Waiting for mutex "
+		puts Time.now.to_f.to_s
+		@createFileMutex.synchronize {
+			puts "createFile(): Got mutex, running createFileBase() "
+			puts Time.now.to_f.to_s
+			return(createFileBase(fileName, userId, data, mkdirp))
+		}
+		puts "createFile(): Released mutex "
+		puts Time.now.to_f.to_s
+	end
+
+  def createFileBase(fileName, userId=nil, data=nil, mkdirp = false)
+
     baseName = getBaseName(fileName)
     dirList = getDirectory(fileName)
     if (!(a = dirExists(dirList)))
@@ -140,19 +171,25 @@ class DirectoryEntryHelper < DirectoryEntry
         puts "Could not create file #{fileName} under non-existing directory"
         return false
       else
-        rval = mkDir(dirList.join(''))
-  			if (!rval)
+        myDirList = dirList.join('')
+        if (myDirList[0] != '/')
+          myDirList = '/' + myDirList
+        end
+        puts "Attempting to create directory " + myDirList
+        rval = mkDir(myDirList)
+        a = dirExists(dirList)
+  			if (!rval || !a)
   				puts "createFile() failed to create Directory!"
   				return FALSE
   			end
-      end      
+      end
     end
     x = DirectoryEntryHelper.find_by_srcpath(fileName)
     if (!x)
       puts "Couldn't find file by srcpath: #{fileName} in DB -- creating entry"
       # The file is NOT in the DB yet, add it!
       lastDir = a[:lastDir]
-      newEntry = {:curName => baseName, :owner => lastDir, :createdBy => User.find_by_id(userId), :ftype => 'file', :srcpath => fileName }
+      newEntry = {:curName => baseName, :owner_id => lastDir.id, :createdBy_id => User.find_by_id(userId), :ftype => 'file', :srcpath => fileName }
       DirectoryEntryHelper.create(newEntry)
       x = DirectoryEntryHelper.find_by_srcpath(fileName)
     end
@@ -170,7 +207,7 @@ class DirectoryEntryHelper < DirectoryEntry
         if (userId == nil)
           userId = 1
         end
-        FileChange.create(:changeType => "setContents", :changeData => YAML.dump(data), :startLine => 0, :startChar => 0, :DirectoryEntry => x.id, :revision => 0, :User => userId, :modifiedBy => userId)
+        FileChange.create(:changeType => "setContents", :changeData => YAML.dump(data), :startLine => 0, :startChar => 0, :DirectoryEntry_id => x.id, :revision => 0, :User_id => userId)
       elsif (x.filechanges.count > 0)
         # The database takes priority over the filesystem, although we may change this once we have a diff system in (so filesystem modifications affect the database)
         puts "Current filechanges.count: " + x.filechanges.count.to_s
@@ -196,6 +233,7 @@ class DirectoryEntryHelper < DirectoryEntry
 
   def mkDir(dirName, userId=nil)
     rere = getDirArray(dirName)
+    puts "mkDir(#{dirName}) .. " + rere.inspect.to_s
     i = rere.length - 1
 
     while (i > 0)
@@ -205,7 +243,11 @@ class DirectoryEntryHelper < DirectoryEntry
         i -= 1
       end
       #			puts "Calling createDirectory! " + rere.take(rere.length - i - 1).inspect.to_s + " : " + rere.take(rere.length - i).last.gsub('/','').inspect.to_s
-      newdir = createDirectory(rere.take(rere.length - i - 1), rere.take(rere.length - i).last.gsub('/',''), userId);
+      dirList = rere.take(rere.length - i - 1)
+      # if (!rere.take(rere.length - i - 1))
+      #   dirList = ['/']
+      # end
+      newdir = createDirectory(dirList, rere.take(rere.length - i).last.gsub('/',''), userId);
       i -= 1
     end
     #		puts " -- Done creating directories -- "
@@ -215,15 +257,20 @@ class DirectoryEntryHelper < DirectoryEntry
   end
 
 
-
   def createDirectory(dirList, dirName, userId=nil)
+		@crdirMutex.synchronize {
+			return(createDirectoryBase(dirList, dirName))
+		}
+	end
+
+  def createDirectoryBase(dirList, dirName, userId=nil)
     # All but the last directory must exist, as opposed to mkdir which will automagically create directories a la "mkdir -p"
     # Ie if you want /server/testing/logs, you'd need to create /server, then /server/testing, then /server/testing/logs when calling this function
     # To make it slightly easier it takes an array ["/", "server","testing"] as the first argument, these directories should exist (and we check for that)
     # And it takes the new subdirectory name as the second argument, with the userId of the person creating the directory as an optional 3rd argument
     # userId may stay nil -- it will show up as "system generated" in that case
     puts "createDirectory() called to create #{dirName} under #{dirList.inspect}"
-    puts dirList.map {|s| s.inspect}.join().gsub('"','').gsub('/','')
+    srcPath =  dirList.map {|s| s.inspect}.join().gsub('"','').gsub('/','')
     existingDirectories = dirList.take(dirList.length);
     fullDirectory = existingDirectories
     fullDirectory << dirName
@@ -244,15 +291,15 @@ class DirectoryEntryHelper < DirectoryEntry
       puts "createDirectory(): dirExists(dirList) was true"
       lastDir = a[:lastDir]
       puts YAML.dump(lastDir)
-      newEntry = {:curName => dirName, :owner => lastDir, :createdBy => User.find_by_id(userId), :ftype => 'folder', :srcpath => dirList.map {|s| s.inspect}.join().gsub('"','') + dirName}
+      newEntry = {:curName => dirName, :owner_id => lastDir.id, :createdBy => User.find_by_id(userId), :ftype => 'folder', :srcpath => dirList.map {|s| s.inspect}.join().gsub('"','') + dirName}
       newDir = DirectoryEntryHelper.create(newEntry)
     else
       puts "createDirectory(): Some number of directories in dirList did not exist, so we couldn't create the directory"
       # Some of the directories in dirList did not exist so we could not create the newest directory
       return false
     end
-    puts "createDirectory(): Successfully created #{dirName}!"
-    puts YAML.dump(newDir)
+    puts "createDirectory(): Successfully created #{dirName} -- " + dirList.map {|s| s.inspect}.join().gsub('"','') + dirName
+    #puts YAML.dump(newDir)
     # We successfully created the directory, return the directory model
     return newDir
   end

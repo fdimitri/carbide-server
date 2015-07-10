@@ -2,6 +2,8 @@ require 'rubygems'
 require 'active_record'
 require 'yaml'
 require 'logger'
+require 'mysql2'
+
 Dir["./models/*rb"].each {| file| require file }
 
 ActiveRecord::Base.logger = Logger.new('debug.log')

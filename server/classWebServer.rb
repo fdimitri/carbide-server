@@ -112,21 +112,19 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
         #Deleting chunk
         FileUtils.rm "#{file}.part#{i}", :force => true
       end
-      puts "File saved to #{dir}/#{params["flowFilename"]}"
+      puts "File saved to #{nfile}"
       targetFile.fsync()
       targetFile.close()
+      localPath = stripPath(nfile)
       if ((/\.(rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp)$/.match(nfile)) || (/^([RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc)/.match(nfile)))
-        YAML.dump(nfile)
         fd = File.open(nfile, "rb");
         data = fd.read
         fd.close
-        @WebServer.Project.FileTree.createFile('/' + stripPath(nfile), nil, data, true)
-
-        puts "createFile(" + stripPath(nfile) + ")"
+        puts "@WebServer.Project.FileTree.createFile(#{localPath}, nil, data, true)"
+        @WebServer.Project.FileTree.createFile(localPath, nil, data, true)
       else
-        @WebServer.Project.FileTree.createFile('/' + stripPath(nfile), nil, nil, true)
-        YAML.dump(nfile)
-        puts "createFile(" + stripPath(nfile) + ")"
+        puts "@WebServer.Project.FileTree.createFile(#{localPath}, nil, nil, true)"
+        @WebServer.Project.FileTree.createFile(localPath, nil, nil, true)
       end
     else
       puts "Saving chunk.."

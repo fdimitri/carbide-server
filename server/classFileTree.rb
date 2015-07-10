@@ -2,6 +2,9 @@
 
 class FileTreeBase
 	def initialize(projectName, sProject)
+		@dirMutex = Mutex.new
+		@mutex = Mutex.new
+		@crdirMutex = Mutex.new
 		@Project = sProject
 		@projectName = projectName
 		@fileTree = {
@@ -163,12 +166,30 @@ class FileTreeBase
 		return(outputText)
 	end
 
-	def createFile(fileName, data=nil)
+	def createFile(fileName, data=nil, mkdirp=false)
+		puts "createFile(): Waiting for mutex "
+		puts Time.now.to_f.to_s
+		@mutex.synchronize {
+			puts "createFile(): Got mutex, running createFileBase() "
+			puts Time.now.to_f.to_s
+			createFileBase(fileName, data, mkdirp)
+		}
+		puts "createFile(): Released mutex "
+		puts Time.now.to_f.to_s
+	end
+
+	def createFileBase(fileName, data=nil, mkdirp=false)
 		baseName = getBaseName(fileName)
 		dirList = getDirectory(fileName)
-		if (!dirExists(dirList))
+		if (!dirExists(dirList) && !mkdirp)
 			puts "Directory does not exist " + dirList.join() + " .."
 			return FALSE
+		else
+			rval = mkDir(dirList.join(''))
+			if (!rval)
+				puts "createFile() failed to create Directory!"
+				return FALSE
+			end
 		end
 
 		puts "createFile() called to create #{fileName} under " + dirList.join('')
@@ -250,6 +271,12 @@ class FileTreeBase
 	end
 
 	def createDirectory(dirList, dirName)
+		@crdirMutex.synchronize {
+			createDirectoryBase(dirList, dirName)
+		}
+	end
+
+	def createDirectoryBase(dirList, dirName)
 		# All but the last directory must exist
 		puts "createDirectory() called to create #{dirName} under #{dirList.inspect}"
 		puts dirList.map {|s| s.inspect}.join().gsub('"','').gsub('/','');
@@ -289,6 +316,12 @@ class FileTreeBase
 	end
 
 	def dirExists(dirList)
+		@dirMutex.synchronize {
+			dirExistsBase(dirList)
+		}
+	end
+
+	def dirExistsBase(dirList)
 		if (dirList.length == 1 && dirList[0] == '/')
 			return TRUE
 		end

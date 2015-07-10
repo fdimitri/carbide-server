@@ -8,12 +8,13 @@ class CreateFileChanges < ActiveRecord::Migration
       t.integer :endLine
       t.integer :endChar
       t.timestamp :mtime
-      t.references :User, index: true, foreign_key: true
-      t.references :DirectoryEntry, index: true, foreign_key: true
+      t.integer :User_id, index: true, foreign_key: true
+      t.integer :DirectoryEntry_id, index: true, foreign_key: true
       t.integer :revision
-      t.references :modifiedBy, index: true, foreign_key: true
-
       t.timestamps null: false
     end
+    add_foreign_key :file_changes, :directory_entries, :column => 'DirectoryEntry_id', :primary_key => 'id'
+    add_foreign_key :file_changes, :users, :column => 'User_id', :primary_key => 'id'
+
   end
 end
