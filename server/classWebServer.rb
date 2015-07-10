@@ -6,9 +6,11 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     rq = request.query()
     params = Hash.new;
     rq.each do |key,val|
-        #puts YAML.dump(val.to_s)
-        params[key] = val.to_s
+      params[key] = val.to_s
     end
+     if (params['srcPath'])
+       params['srcPath'] = params['srcPath'][1..-1]
+     end
     return params
   end
 
@@ -18,20 +20,15 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     params = getParams(request);
     #params = request['request_uri']
     #chunk folder path based on the parameters
-    dir = File.expand_path("#{@tempDir}/")
+
+    dir = File.expand_path("#{@tempDir}/#{params['srcPath']}/")
     #chunk path based on the parameters
     if (params.has_key?('flowRelativePath'))
-      file = "#{dir}/#{params['flowRelativePath']}"
+      file = "#{dir}/#{params['flowRelativePath']}" + ".part#{params["flowChunkNumber"]}"
     else
-      file = "#{dir}/#{params["flowFilename"]}"
+      file = "#{dir}/#{params["flowFilename"]}" + ".part#{params["flowChunkNumber"]}"
     end
-#    chunk = file + ".part#{params["flowChunkNumber"]}-#{params["flowIdentifier"]}"
 
-    #dir = File.expand_path("#{@tempDir}/#{params["flowIdentifier"]}")
-    #chunk path based on the parameters
-    #chunk = "#{dir}/#{params["flowFilename"]}.part#{params["flowChunkNumber"]}"
-    #puts "Checking existince of #{chunk}"
-    #if File.exists?(chunk)
     if File.exists?(file)
       #Let flow.js know this chunk already exists
       response.status = 200
@@ -50,7 +47,7 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     response['Accept-Encoding'] = "gzip"
     params = getParams(request)
     #chunk folder path based on the parameters
-    dir = File.expand_path("#{@tempDir}/")
+    dir = File.expand_path("#{@tempDir}/#{params['srcPath']}/")
     #chunk path based on the parameters
     if (params.has_key?('flowRelativePath'))
       file = "#{dir}/#{params['flowRelativePath']}"
@@ -67,11 +64,20 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
       end
     end
     # Write the chunk out to a file
-    chunkFile = File.open(chunk, "wb")
-    chunkFile.write(params["file"])
-    chunkFile.fsync()
-    chunkFile.close()
-    params["file"] = nil
+    if (params['file'].length == params["flowCurrentChunkSize"].to_i)
+      chunkFile = File.open(chunk, "wb")
+      chunkFile.write(params["file"])
+      chunkFile.fsync()
+      chunkFile.close()
+      params["file"] = nil
+    else
+      puts "UploadBase::do_POST(): Severe error, chunk.length != flowCurrentChunkSize: " + chunk.length.to_s + " != " + params["flowCurrentChunkSize"].to_s
+      response.status = 500
+      response['Content-Type'] = 'text/plain'
+      response.body = "Your chunk wasn't what you claimed it would be."
+      response['Access-Control-Allow-Origin'] = "*"
+      return(response)
+    end
 
     currentSize = params["flowChunkNumber"].to_i * params["flowChunkSize"].to_i
     filesize = params["flowTotalSize"].to_i
@@ -79,9 +85,9 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     #When all chunks are uploaded
     #Concatenate all the partial files into the original file
     if (params.has_key?('flowRelativePath'))
-      nfile = "#{@baseDirectory}/#{params['flowRelativePath']}"
+      nfile = "#{@baseDirectory}/#{params['srcPath']}/#{params['flowRelativePath']}"
     else
-      nfile = "#{@baseDirectory}/#{params["flowFilename"]}"
+      nfile = "#{@baseDirectory}/#{params['srcPath']}/#{params["flowFilename"]}"
     end
 
     if (currentSize + params["flowCurrentChunkSize"].to_i) >= filesize
@@ -92,15 +98,24 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
           FileUtils.mkdir_p(dirname, :mode => 0777)
         end
       end
+      fileTree = @WebServer.Project.FileTree;
+      if (fileTree.fileExists(stripPath(nfile) || File.exists?(nfile)))
+        response.status = 404
+        response['Content-Type'] = 'text/plain'
+        response.body = "File already exists: " + stripPath(nfile)
+        response['Access-Control-Allow-Origin'] = "*"
+        return(response)
+      end
 
       targetFile = File.open("#{nfile}","a+b")
       if (!targetFile)
         response.status = 500
         response['Content-Type'] = 'text/plain'
-        response.body = "Unable to create targetFile #{dir}/#{params["flowFilename"]}"
+        response.body = "Unable to create targetFile #{dir}/#{params['srcPath']}/#{params["flowFilename"]}, but we still have all of the parts saved"
         response['Access-Control-Allow-Origin'] = "*"
         return
       end
+
 
       #Loop trough the chunks
       for i in 1..params["flowChunkNumber"].to_i
@@ -174,30 +189,25 @@ class WebServer
     @port = port
     @root = root
     access_log = [
-      [$stderr, WEBrick::AccessLog::COMMON_LOG_FORMAT],
-      [$stderr, WEBrick::AccessLog::REFERER_LOG_FORMAT],
-      [$stderr, WEBrick::AccessLog::COMBINED_LOG_FORMAT],
+      [$stdout, WEBrick::AccessLog::COMMON_LOG_FORMAT],
+      [$stdout, WEBrick::AccessLog::REFERER_LOG_FORMAT],
+      [$stdout, WEBrick::AccessLog::COMBINED_LOG_FORMAT],
     ]
     @root = File.expand_path(root)
     @server = WEBrick::HTTPServer.new(:Port => port, :DocumentRoot => @root, :BindAddress => "0.0.0.0", :AccessLog => access_log, :ServerName => "172.17.0.42:6400")
-    puts YAML.dump(@server)
     trap 'INT' do
       puts "Received INT.. shutting down server"
       @server.shutdown
     end
     a = @server.mount '/upload', UploadFile, @root + "/uploads", @root, self
-    puts YAML.dump(a)
-
-
   end
 
   def registerProject(project)
     @Project = project
   end
+
   def start()
-    puts "We got a result from server.start.."
     res = @server.start
-    puts YAML.dump(res)
   end
 
 

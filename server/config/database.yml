@@ -6,8 +6,8 @@
 #
 default: &default
   adapter: sqlite3
-  pool: 5
-  timeout: 5000
+  pool: 50
+  timeout: 20000
 
 development:
   # <<: *default
@@ -21,7 +21,7 @@ development:
   password: bu:tln563
   socket: /var/run/mysqld/mysqld.sock
   timeout: 20000
-  pool: 5
+  pool: 50
   #host: 127.0.0.1
   #port: 3306
   reconnect: true

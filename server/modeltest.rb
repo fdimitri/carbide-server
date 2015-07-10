@@ -502,8 +502,8 @@ end
 @myProject = nil
 @webServer = nil
 @myProject = Project.new('CARBIDE-SERVER')
-puts "Using directory " + File.expand_path(File.dirname(__FILE__))
-@webServer = WebServer.new(6400, File.expand_path(File.dirname(__FILE__)))
+puts "Using directory " + File.expand_path(File.dirname(__FILE__) + "/../")
+@webServer = WebServer.new(6400, File.expand_path(File.dirname(__FILE__) + "/../"))
 
 myProjectThread = Thread.new {
   @myProject.start()
