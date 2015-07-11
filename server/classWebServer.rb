@@ -8,9 +8,15 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     rq.each do |key,val|
       params[key] = val.to_s
     end
-     if (params['srcPath'])
-       params['srcPath'] = params['srcPath'][1..-1]
-     end
+    if (params['srcPath'].length == 1 && params['srcPath'][0] == '/')
+      params['srcPath'] = ''
+    end
+    if (params['srcPath'] && params['srcPath'].length > 1 && params['srcPath'][0] == '/')
+      params['srcPath'] = params['srcPath'][1..-1]
+    end
+    if (params['srcPath'] && params['srcPath'].length > 1 && !params['srcPath'][-1] == '/')
+      params['srcPath']  = params['srcPath'] + '/'
+    end
     return params
   end
 
@@ -21,7 +27,7 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     #params = request['request_uri']
     #chunk folder path based on the parameters
 
-    dir = File.expand_path("#{@tempDir}/#{params['srcPath']}/")
+    dir = File.expand_path("#{@tempDir}/#{params['srcPath']}")
     #chunk path based on the parameters
     if (params.has_key?('flowRelativePath'))
       file = "#{dir}/#{params['flowRelativePath']}" + ".part#{params["flowChunkNumber"]}"
@@ -47,7 +53,8 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     response['Accept-Encoding'] = "gzip"
     params = getParams(request)
     #chunk folder path based on the parameters
-    dir = File.expand_path("#{@tempDir}/#{params['srcPath']}/")
+    dir = File.expand_path("#{@tempDir}/#{params['srcPath']}")
+    srcPath = params['srcPath']
     #chunk path based on the parameters
     if (params.has_key?('flowRelativePath'))
       file = "#{dir}/#{params['flowRelativePath']}"
@@ -65,10 +72,7 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     end
     # Write the chunk out to a file
     if (params['file'].length == params["flowCurrentChunkSize"].to_i)
-      chunkFile = File.open(chunk, "wb")
-      chunkFile.write(params["file"])
-      chunkFile.fsync()
-      chunkFile.close()
+      writeFile(srcPath, chunk, params["file"])
       params["file"] = nil
     else
       puts "UploadBase::do_POST(): Severe error, chunk.length != flowCurrentChunkSize: " + chunk.length.to_s + " != " + params["flowCurrentChunkSize"].to_s
@@ -85,9 +89,9 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     #When all chunks are uploaded
     #Concatenate all the partial files into the original file
     if (params.has_key?('flowRelativePath'))
-      nfile = "#{@baseDirectory}/#{params['srcPath']}/#{params['flowRelativePath']}"
+      nfile = "#{@baseDirectory}/#{params['srcPath']}#{params['flowRelativePath']}"
     else
-      nfile = "#{@baseDirectory}/#{params['srcPath']}/#{params["flowFilename"]}"
+      nfile = "#{@baseDirectory}/#{params['srcPath']}#{params["flowFilename"]}"
     end
 
     if (currentSize + params["flowCurrentChunkSize"].to_i) >= filesize
@@ -111,13 +115,20 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
       if (!targetFile)
         response.status = 500
         response['Content-Type'] = 'text/plain'
-        response.body = "Unable to create targetFile #{dir}/#{params['srcPath']}/#{params["flowFilename"]}, but we still have all of the parts saved"
+        response.body = "Unable to create targetFile #{dir}/#{params['srcPath']}#{params["flowFilename"]}, but we still have all of the parts saved"
         response['Access-Control-Allow-Origin'] = "*"
         return
       end
 
 
       #Loop trough the chunks
+      while (@t[srcPath].count > 0) do
+        puts "Waiting for threads to finish writing.."
+        @t[srcPath].each { |t| t.join unless (t.alive?) }
+        @t[srcPath].delete_if { |t| !t.alive?}
+        sleep 0.5
+      end
+
       for i in 1..params["flowChunkNumber"].to_i
         #Select the chunk
         chunk = File.open("#{file}.part#{i}", 'rb')
@@ -157,6 +168,20 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     return newPath
   end
 
+  def writeFile(srcPath, fileName, data, opts='wb')
+    @t = Hash.new unless (@t)
+    @t[srcPath] = [] unless @t[srcPath]
+    @t[srcPath] << Thread.new {
+      fd = File.open(fileName, opts)
+      fd.write(data)
+      fd.fsync()
+      fd.close()
+    }
+    @t[srcPath].each { |t| t.join unless (t.alive?) }
+    @t[srcPath].delete_if { |t| !t.alive?}
+  end
+
+
   def do_OPTIONS(request, response)
     puts "do_OPTIONS called"
     response.status = 200
@@ -179,6 +204,7 @@ class UploadFile < UploadBase
     @baseDirectory = dlDir
     puts "Initialize UploadBase End"
   end
+
 
 end
 

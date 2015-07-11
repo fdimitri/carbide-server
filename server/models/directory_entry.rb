@@ -8,8 +8,8 @@ class DirectoryEntry < ActiveRecord::Base
 
   def mutexes
     @dirMutex = Mutex.new
-    @createFileMutex = Mutex.new
     @crdirMutex = Mutex.new
+    @createFileMutex = Mutex.new
   end
 
   def create
