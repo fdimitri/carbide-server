@@ -3,7 +3,7 @@
 class FileTreeBase
 	def initialize(projectName, sProject)
 		@dirMutex = Mutex.new
-		@mutex = Mutex.new
+		@createFileMutex = Mutex.new
 		@crdirMutex = Mutex.new
 		@Project = sProject
 		@projectName = projectName
@@ -37,14 +37,14 @@ class FileTreeBase
 		#puts htmlTree(@fileTree)
 	end
 
-	def sanitizeName(name)
+	def sanitizeName(name, tprepend='', tappend='')
 		name += @@idIncrement.to_s
 		@@idIncrement += 1
-		return("ft" + name)
+		return("ft" + tprepend + name + tappend)
 
 	end
 
-	def jsonTree(start = @fileTree, parent = false)
+	def jsonTree(start = @fileTree, parent = false, tprepend='', tappend='')
 		if (parent == false)
 			@@idIncrement = 0
 		end
@@ -74,7 +74,7 @@ class FileTreeBase
 						name = key
 					end
 
-					newId = sanitizeName(type)
+					newId = sanitizeName(type, tprepend, tappend)
 					myJSON = [
 						'id' => newId,
 						'parent' => parent,
@@ -87,7 +87,7 @@ class FileTreeBase
 					]
 					jsonString << myJSON
 					if value.has_key?("children")
-						jsonString << jsonTree(value['children'], newId)
+						jsonString << jsonTree(value['children'], newId, tprepend, tappend)
 					end
 				else
 					puts "Value class was not hash? " + value.class.to_s + " -- " + value.inspect
@@ -263,11 +263,11 @@ class FileTreeBase
 				i -= 1
 			end
 			puts "Calling createDirectory!"
-			createDirectory(rere.take(rere.length - i), rere.take(rere.length - i + 1).last.gsub('/',''));
+			lastDir = createDirectory(rere.take(rere.length - i), rere.take(rere.length - i + 1).last.gsub('/',''));
 			i -= 1
 		end
 		puts " -- Done creating directories -- "
-		puts @fileTree
+		return(lastDir)
 	end
 
 	def createDirectory(dirList, dirName)
@@ -365,16 +365,8 @@ class FileTreeBase
 end
 
 class FileTree < FileTreeBase
-	def procMsg(client, jsonMsg)
-		puts "Asked to process a message for myself: from client #{client.name}"
-		if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
-			puts "Found a function handler for  #{jsonMsg['command']}"
-			self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg);
-		elsif
-			puts "There is no function to handle the incoming command #{jsonMsg['command']}"
-		end
-	end
 	def procMsg_getFileTreeJSON(client, jsonMsg)
+		puts "procMsg_getFileTreeJSON() Entry"
 		@clientReply = {
 			'commandSet' => 'FileTree',
 			'command' => 'setFileTreeJSON',
@@ -384,5 +376,41 @@ class FileTree < FileTreeBase
 		}
 		@clientString = @clientReply.to_json
 		@Project.sendToClient(client, @clientString)
+		puts "procMsg_getFileTreeJSON() Exit"
+		STDOUT.flush
 	end
+
+	def procMsg_getFileTreeModalJSON(client, jsonMsg)
+		puts "procMsg_getFileTreeModalJSON() Entry"
+		@clientReply = {
+			'commandSet' => 'FileTree',
+			'command' => 'setFileTreeModalJSON',
+			'setFileTreeModalJSON' => {
+				'fileTree' => jsonTree(@fileTree, false, '', 'modal'),
+			}
+		}
+		@clientString = @clientReply.to_json
+		@Project.sendToClient(client, @clientString)
+		puts "procMsg_getFileTreeJSON() Exit"
+		STDOUT.flush
+	end
+
+	def procMsg(client, jsonMsg)
+		$stdout.sync = true
+		puts YAML.dump(STDOUT)
+		$stdout.puts YAML.dump($stdout)
+		$stderr.puts YAML.dump($stdout)
+		$stderr.puts YAML.dump(STDOUT)
+		STDOUT.puts "Asked to process a message for myself: from client #{client.name}"
+		if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
+			STDOUT.puts "Found a function handler for  #{jsonMsg['command']}"
+			self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg);
+		elsif
+			STDOUT.puts "There is no function to handle the incoming command #{jsonMsg['command']}"
+		end
+		STDOUT.puts "FileTree::procMsg() exit"
+		STDOUT.flush
+	end
+
+
 end

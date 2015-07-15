@@ -14,7 +14,7 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     if (params['srcPath'] && params['srcPath'].length > 1 && params['srcPath'][0] == '/')
       params['srcPath'] = params['srcPath'][1..-1]
     end
-    if (params['srcPath'] && params['srcPath'].length > 1 && !params['srcPath'][-1] == '/')
+    if (params['srcPath'] && params['srcPath'].length > 1 && params['srcPath'][-1] != '/')
       params['srcPath']  = params['srcPath'] + '/'
     end
     return params

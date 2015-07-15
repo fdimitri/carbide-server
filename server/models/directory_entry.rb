@@ -306,7 +306,7 @@ class DirectoryEntryHelper < DirectoryEntry
 end
 
 class FileTreeX < DirectoryEntryHelper
-  def jsonTree(start = nil, parent = false)
+  def jsonTree(start = nil, parent = false, tprepend='', tappend='')
     if (parent == false)
       @@idIncrement = 0
     end
@@ -324,7 +324,7 @@ class FileTreeX < DirectoryEntryHelper
       ec = 'jsTreeRoot'
       icon = "jstree-folder"
       parent = "#"
-      newId = sanitizeName(type)
+      newId = sanitizeName(type, tprepend, tappend)
       myJSON = [
         'id' => newId,
         'parent' => parent,
@@ -339,7 +339,7 @@ class FileTreeX < DirectoryEntryHelper
       jsonString << myJSON
     end
     if (parent == "#")
-      parent = "ftroot0"
+      parent = "ft" + tprepend + "root0" + tappend
     end
 
     if (start != nil)
@@ -359,7 +359,7 @@ class FileTreeX < DirectoryEntryHelper
           ec = 'jsTreeFile'
           icon = "jstree-file"
         end
-        newId = sanitizeName(type)
+        newId = sanitizeName(type, tprepend, tappend)
         myJSON = [
           'id' => newId,
           'parent' => parent,
@@ -373,12 +373,12 @@ class FileTreeX < DirectoryEntryHelper
         ]
         jsonString << myJSON
         if (item.children.count > 0)
-          jsonString << jsonTree(item, newId)
+          jsonString << jsonTree(item, newId, tprepend, tappend)
         end
       end
     end
 
-    if (parent == 'ftroot0')
+    if (/root/.match(parent))
       #We really only need ftroot0 here, as I found out through experimentation
       #Give me a break, I've been up for over 20 hours!
       return(jsonString.flatten.to_json)
@@ -386,12 +386,11 @@ class FileTreeX < DirectoryEntryHelper
     return(jsonString)
   end
 
-  def sanitizeName(name)
-    # Add an incrementing counter to each name so they're all unique
-    name += @@idIncrement.to_s
-    @@idIncrement += 1
-    return("ft" + name)
-  end
+  def sanitizeName(name, tprepend='', tappend='')
+		name += @@idIncrement.to_s
+		@@idIncrement += 1
+		return("ft" + tprepend + name + tappend)
+	end
 
   def procMsg(client, jsonMsg)
     puts "Asked to process a message for myself: from client #{client.name}"
@@ -416,4 +415,21 @@ class FileTreeX < DirectoryEntryHelper
     @clientString = @clientReply.to_json
     @Project.sendToClient(client, @clientString)
   end
+
+  def procMsg_getFileTreeModalJSON(client, jsonMsg)
+		puts "procMsg_getFileTreeModalJSON() Entry"
+    puts YAML.dump(jsonTree(nil, false, '', 'modal'))
+		@clientReply = {
+			'commandSet' => 'FileTree',
+			'command' => 'setFileTreeModalJSON',
+			'setFileTreeModalJSON' => {
+				'fileTree' => jsonTree(nil, false, '', 'modal'),
+			}
+		}
+		@clientString = @clientReply.to_json
+		@Project.sendToClient(client, @clientString)
+		puts "procMsg_getFileTreeJSON() Exit"
+
+	end
+
 end

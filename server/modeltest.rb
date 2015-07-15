@@ -123,6 +123,8 @@ class Project
           chat.procMsg(getClient(ws), jsonString)
         end
       elsif (jsonString['commandSet'] == 'FileTree')
+        STDERR.puts "Received FileTree command"
+        STDERR.flush
         @FileTree.procMsg(getClient(ws), jsonString)
       elsif (jsonString['commandSet'] == 'term')
         if (term = getTerminal(jsonString['termTarget']))
