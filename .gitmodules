@@ -1,0 +1,3 @@
+[submodule "ruby-termios"]
+	path = ruby-termios
+	url = https://github.com/arika/ruby-termios.git
