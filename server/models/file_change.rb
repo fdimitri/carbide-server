@@ -39,5 +39,4 @@ end
 class FileChangeHelper < FileChange
 
 
-
 end

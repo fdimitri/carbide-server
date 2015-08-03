@@ -8,20 +8,26 @@ require 'sqlite3'
 require 'bcrypt'
 require 'rails-erd'
 require 'mysql2'
+require 'openssl'
+
 Dir["./class*rb"].each { |file|
-  puts file
+  puts "Require: " + file
   require file
 }
+Dir["./testing/*rb.use"].each { |file|
+  if File.symlink?(file)
+    nFile = File.readlink(file)
+    nFile = './testing/' + nFile
+  elsif File.file?(file)
+    nFile = file
+  end
 
-require './classClient.rb'
-require './classChat.rb'
-require './classFileTree.rb'
-require './classDocument.rb'
-require './classTerminal.rb'
-require './classWebServer.rb'
-require './testing/classFileSystemX.rb'
+  puts "Require: " + nFile
+  require nFile
+}
+
 Dir["./models/*rb"].each {| file|
-  puts file
+  puts "Require: " + file
   require file
 }
 
@@ -38,7 +44,6 @@ class String
     end
   end
 end
-
 
 
 class Project
@@ -151,9 +156,7 @@ class Project
       end
     elsif
       puts "Message was either invalid JSON or another format"
-
     end
-
   end
 
 
@@ -488,6 +491,8 @@ class Project
   end
 end
 
+
+
 newUsers = [
     { :userName => "FrankD", :firstName => "Frank", :lastName => "DiMitri", :email => "frankd412@gmail.com", :password => "bx115" },
     { :userName => "MikeW", :firstName => "Mike", :lastName => "Weird", :email => "mikew@frank-d.info", :password => "mikew" },
@@ -506,6 +511,7 @@ end
 @myProject = Project.new('CARBIDE-SERVER')
 puts "Using directory " + File.expand_path(File.dirname(__FILE__) + "/../")
 @webServer = WebServer.new(6400, File.expand_path(File.dirname(__FILE__) + "/../"))
+Thread.abort_on_exception = false
 
 myProjectThread = Thread.new {
   @myProject.start()
@@ -526,8 +532,14 @@ puts webServerThread.status
 puts myProjectThread.status
 
 while true do
-  puts webServerThread.status
-  puts myProjectThread.status
+  if (!webServerThread.alive? || !myProjectThread.alive?)
+    puts "WS Status: " + webServerThread.status.to_s
+    puts "Project Status: " + myProjectThread.status.to_s
+    puts "A thread has died."
+    webServerThread.exit
+    myProjectThread.exit
+    exit
+  end
   sleep 1
 end
 

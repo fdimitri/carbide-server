@@ -2,11 +2,11 @@ class DirectoryEntry < ActiveRecord::Base
   # Some really cool ActiveRecord stuff!
   belongs_to :owner, :class_name => "DirectoryEntry", :foreign_type => "DirectoryEntry", :foreign_key => "id"
   belongs_to :createdBy, class_name: "User", primary_key: "createdBy_id", foreign_key: "id"
-  has_many :children, class_name: "DirectoryEntry", foreign_key: "owner_id", foreign_type: "DirectoryEntry"
-  has_many :filechanges, class_name: "FileChange", foreign_key: "DirectoryEntry_id"
-  after_initialize :mutexes
+  has_many :children, class_name: "DirectoryEntry", foreign_key: "owner_id", foreign_type: "DirectoryEntry", :dependent => :destroy
+  has_many :filechanges, class_name: "FileChange", foreign_key: "DirectoryEntry_id", :dependent => :destroy
+  after_initialize :make_ivs
 
-  def mutexes
+  def make_ivs
     @dirMutex = Mutex.new
     @crdirMutex = Mutex.new
     @createFileMutex = Mutex.new
@@ -53,6 +53,20 @@ class DirectoryEntryHelper < DirectoryEntry
     end
     @directoryEntry = DirectoryEntry.new(params)
     @directoryEntry.save!
+  end
+
+  def getNewestEntry()
+    begin
+      puts "getNewestEntry(): Entry"
+      #res = DirectoryEntry.find(:first, :order => "updated_at DESC")
+      res = DirectoryEntry.order("updated_at DESC").offset(0).first
+      puts "getNewestEntry(): Returning result:"
+      puts YAML.dump(res)
+    rescue Exception => e
+      puts "Caught error.. #{e.type} with message of #{e.message}"
+      return(false)
+    end
+    return(res)
   end
 
 
@@ -162,7 +176,6 @@ class DirectoryEntryHelper < DirectoryEntry
 	end
 
   def createFileBase(fileName, userId=nil, data=nil, mkdirp = false)
-
     baseName = getBaseName(fileName)
     dirList = getDirectory(fileName)
     if (!(a = dirExists(dirList)))
@@ -232,6 +245,9 @@ class DirectoryEntryHelper < DirectoryEntry
 
 
   def mkDir(dirName, userId=nil)
+    # mkDir works like `mkdir -p`, it loops through the directory list from loop to end
+    # and checks to see if it exists at each step -- if it doesn't, it calls createDirectory()
+    # for a directory at each level in the tree.
     rere = getDirArray(dirName)
     puts "mkDir(#{dirName}) .. " + rere.inspect.to_s
     i = rere.length - 1
@@ -303,94 +319,145 @@ class DirectoryEntryHelper < DirectoryEntry
     # We successfully created the directory, return the directory model
     return newDir
   end
+
+  def rename(newName)
+    newSrcPath = getDirectory(self.srcpath).join().to_s + "#{newName}"
+    self.curName = newName;
+    self.srcpath = newSrcPath;
+    self.save!
+  end
+
 end
 
 class FileTreeX < DirectoryEntryHelper
+  def initiailize
+    super
+    @newestEntry = false
+    @cachedJSONTree = false
+  end
+
+  def incRevision()
+  end
+
   def jsonTree(start = nil, parent = false, tprepend='', tappend='')
-    if (parent == false)
-      @@idIncrement = 0
-    end
-    if (start == nil)
-      start = getRootDirectory()
-      if (start == nil)
-        puts "FileTreeX getRootDirectory() failed"
-        return
+    puts "jsonTree(): Called"
+    begin
+      if (start == nil && (@newestEntry && @newestEntry == getNewestEntry() && @cachedJSONTree && @cachedJSONTree.length))
+        puts "jsonTree(): Returning cached entry"
+        return(@cachedJSONTree)
       end
-    end
 
-    jsonString = []
-    if (start == getRootDirectory())
-      type = 'root'
-      ec = 'jsTreeRoot'
-      icon = "jstree-folder"
-      parent = "#"
-      newId = sanitizeName(type, tprepend, tappend)
-      myJSON = [
-        'id' => newId,
-        'parent' => parent,
-        'text' => start.curName,
-        'type' => type,
-        'li_attr' => {
-          "class" => ec,
-          #We need to Keep track of the srcPath.. perhaps in the DB
-          'srcPath' => start.srcpath,
-        },
-      ]
-      jsonString << myJSON
-    end
-    if (parent == "#")
-      parent = "ft" + tprepend + "root0" + tappend
-    end
-
-    if (start != nil)
-      start.children.each do |item|
-        if (item.ftype == 'folder')
-          type = 'folder'
-          ec = 'jsTreeFolder'
-          data = 'js'
-          icon = 'jstree-folder'
-        elsif (item.ftype == 'file')
-          type = 'file'
-          ec = 'jsTreeFile'
-          icon = "jstree-file"
-        else
-          puts "Unknown type"
-          type = 'file'
-          ec = 'jsTreeFile'
-          icon = "jstree-file"
+      if (start == nil)
+        puts "jsonTree(): Call start = getRootDirectory()"
+        start = getRootDirectory()
+        if (start == nil)
+          puts "jsonTree(): FileTreeX getRootDirectory() failed"
+          return
         end
-        newId = sanitizeName(type, tprepend, tappend)
+        puts "jsonTree(): @newestEntry does not match getNewestEntry(), setting @newestEntry"
+        @newestEntry = getNewestEntry()
+        puts "jsonTree(): This ends the new code.."
+      end
+
+      puts "jsonTree(): This is after the start == nil block, we found the root directory.."
+
+      jsonString = []
+      if (start == getRootDirectory())
+        type = 'root'
+        ec = 'jsTreeRoot'
+        icon = "jstree-folder"
+        parent = "#"
+        newId = sanitizeName(type, start.srcpath, tprepend, tappend)
         myJSON = [
           'id' => newId,
           'parent' => parent,
-          'text' => item.curName,
+          'text' => start.curName,
           'type' => type,
           'li_attr' => {
             "class" => ec,
             #We need to Keep track of the srcPath.. perhaps in the DB
-            "srcPath" => item.srcpath,
+            'srcPath' => start.srcpath,
           },
         ]
         jsonString << myJSON
-        if (item.children.count > 0)
-          jsonString << jsonTree(item, newId, tprepend, tappend)
+      end
+      if (parent == "#")
+        parent = "ft" + tprepend + "root0" + tappend
+      end
+
+      if (start != nil)
+        start.children.each do |item|
+          if (item.ftype == 'folder')
+            type = 'folder'
+            ec = 'jsTreeFolder'
+            data = 'js'
+            icon = 'jstree-folder'
+          elsif (item.ftype == 'file')
+            type = 'file'
+            ec = 'jsTreeFile'
+            icon = "jstree-file"
+          else
+            puts "Unknown type"
+            type = 'file'
+            ec = 'jsTreeFile'
+            icon = "jstree-file"
+          end
+          newId = sanitizeName(type, item.srcpath, tprepend, tappend)
+          myJSON = [
+            'id' => newId,
+            'parent' => parent,
+            'text' => item.curName,
+            'type' => type,
+            'li_attr' => {
+              "class" => ec,
+              #We need to Keep track of the srcPath.. perhaps in the DB
+              "srcPath" => item.srcpath,
+            },
+          ]
+          jsonString << myJSON
+          if (item.children.count > 0)
+            jsonString << jsonTree(item, newId, tprepend, tappend)
+          end
         end
       end
+    rescue Exception => e
+      puts "Caught error.. #{e.type} with message of #{e.message}"
+      return(false)
     end
 
-    if (/root/.match(parent))
-      #We really only need ftroot0 here, as I found out through experimentation
-      #Give me a break, I've been up for over 20 hours!
-      return(jsonString.flatten.to_json)
+    begin
+      if (/root/.match(parent))
+        #We really only need ftroot0 here, as I found out through experimentation
+        #Give me a break, I've been up for over 20 hours!
+        puts "jsonTree(): Matched root as parent, return flatten.to_json and set cachedJSONTree"
+        @cachedJSONTree = jsonString.flatten.to_json
+        puts "jsonTree(): Saved cachedJSONTree, returning it"
+        return(@cachedJSONTree)
+      end
+      puts "jsonTree(): Not root, returning without flattening.."
+      return(jsonString)
+    rescue Exception => e
+      puts "Caught error.. #{e.type} with message of #{e.message}"
+      return(false)
     end
-    return(jsonString)
   end
 
-  def sanitizeName(name, tprepend='', tappend='')
-		name += @@idIncrement.to_s
-		@@idIncrement += 1
-		return("ft" + tprepend + name + tappend)
-	end
+  def sanitizeName(type, name, tprepend='', tappend='')
+    begin
+      if (type == 'root')
+        return("ftroot0")
+      end
+      digest = OpenSSL::Digest::SHA256.hexdigest(name)
+      # digest = digest[0..7] + digest[-8..-1]
+
+      name = name + digest
+
+      return("ft" + tprepend + type + "--" + digest + "--" + tappend)
+    rescue Exception => e
+      puts "Caught error.. #{e.type} with message of #{e.message}"
+    end
+
+  end
 
   def procMsg(client, jsonMsg)
     puts "Asked to process a message for myself: from client #{client.name}"
@@ -417,19 +484,67 @@ class FileTreeX < DirectoryEntryHelper
   end
 
   def procMsg_getFileTreeModalJSON(client, jsonMsg)
-		puts "procMsg_getFileTreeModalJSON() Entry"
+    puts "procMsg_getFileTreeModalJSON() Entry"
     puts YAML.dump(jsonTree(nil, false, '', 'modal'))
-		@clientReply = {
-			'commandSet' => 'FileTree',
-			'command' => 'setFileTreeModalJSON',
-			'setFileTreeModalJSON' => {
-				'fileTree' => jsonTree(nil, false, '', 'modal'),
-			}
-		}
-		@clientString = @clientReply.to_json
-		@Project.sendToClient(client, @clientString)
-		puts "procMsg_getFileTreeJSON() Exit"
+    @clientReply = {
+      'commandSet' => 'FileTree',
+      'command' => 'setFileTreeModalJSON',
+      'setFileTreeModalJSON' => {
+        'fileTree' => jsonTree(nil, false, '', 'modal'),
+      }
+    }
+    @clientString = @clientReply.to_json
+    @Project.sendToClient(client, @clientString)
+    puts "procMsg_getFileTreeJSON() Exit"
+  end
 
-	end
+  def procMsg_createEntry(client, jsonMsg)
+    tData = jsonMsg['createEntry']
+    srcPath = tData['srcPath']
+    #def createFile(fileName, userId=nil, data=nil, mkdirp = false)
+    #Temporarily attribute all changes to user 1, we should use client.id when
+    #A&A is implemented
+    nFile = createFile(srcPath, 1, nil, false)
+  end
 
+  def procMsg_renameEntry(client, jsonMsg)
+    begin
+      STDERR.puts YAML.dump(jsonMsg)
+      tData = jsonMsg['renameEntry']
+      STDERR.puts "Set srcPath"
+      srcPath = tData['srcPath']
+      STDERR.puts "Set newName"
+      newName = tData['newName']
+      STDERR.puts "srcPath: " + srcPath.inspect.to_s
+      STDERR.puts "srcPath: " + srcPath.class.to_s
+      STDERR.puts "newName: " + newName.inspect.to_s
+      STDERR.puts "newName: " + newName.class.to_s
+
+      STDERR.puts "fEntry = DEH.find_by"
+      fEntry = DirectoryEntryHelper.find_by_srcpath(srcPath)
+      if (!fEntry)
+        STDERR.puts "procMsg_renameEntry unable to find by srcPath "  + srcPath
+        return(false)
+      end
+      STDERR.puts "Call rename with newName"
+      fEntry.rename(newName)
+    rescue Exception, TypeError, NameError => e
+      STDERR.puts "Rescued from error: #{e}"
+    end
+
+  end
+
+  def procMsg_deleteEntry(client, jsonMsg)
+    STDERR.puts YAML.dump(jsonMsg)
+    tData = jsonMsg['deleteEntry']
+    srcPath = tData['srcPath']
+    # if (!/^\//.match(srcPath))
+    #   srcPath = /\/.*/.match(srcPath)[0]
+    # end
+    fEntry = DirectoryEntry.find_by_srcpath(srcPath)
+    if (!fEntry)
+      puts "procMsg_deleteEntry unable to find by srcPath "  + srcPath
+    end
+    DirectoryEntry.destroy(fEntry.id)
+  end
 end

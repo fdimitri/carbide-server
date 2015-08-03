@@ -4,7 +4,7 @@ class DocumentBase
   attr_accessor :project
   attr_accessor :clients
 
-  def initialize(project, name, baseDirectory)
+  def initialize(project, name, baseDirectory, dbEntry = nil)
     @project = project
     @name = name
     @revision = 0
@@ -40,9 +40,11 @@ class DocumentBase
   end
 
   def getHash(revision)
-    @myString = @data.join('\n')
+    myString = @data.join('\n')
     # puts "We should generate a hash here for this string: #{@myString}"
-    return 0xFF
+    puts "Generating hash.."
+    digest = OpenSSL::Digest::MD5.hexdigest(myString)
+    return(digest)
   end
 
   def readFromFS()
@@ -148,6 +150,7 @@ class Document < DocumentBase
   end
 
   def procMsg_getContents(client, jsonMsg)
+
     @data.each { |d|
       if (d.is_a?(String))
         d = d.sub("\n","").sub("\r","")
@@ -156,19 +159,29 @@ class Document < DocumentBase
         puts YAML.dump(d)
       end
     }
-
-    @clientReply = {
-      'commandSet' => 'document',
-      'command' => 'documentSetContents',
-      'targetDocument' => @name,
-      'documentSetContents' => {
-        'documentRevision' => @revision,
-        'numLines' => @data.length,
-        'docHash' => getHash(@revision),
-        'data' => @data.join("\n").force_encoding("ISO-8859-1").encode('utf-8'),
-        'document' => @name,
+    begin
+      puts "procMsg_getContents(): Creating client reply.."
+      @clientReply = {
+        'commandSet' => 'document',
+        'command' => 'documentSetContents',
+        'targetDocument' => @name,
+        'documentSetContents' => {
+          'documentRevision' => @revision,
+          'numLines' => @data.length,
+          'docHash' => getHash(@revision),
+          'data' => @data.join("\n").force_encoding("ISO-8859-1").encode('utf-8'),
+          'document' => @name,
+        }
       }
-    }
+    rescue Exception => e
+      puts "There was an error!"
+      puts YAML.dump(e)
+      puts "Error: " + e.message
+      puts "Backtrace: " + e.backtrace
+
+    end
+
+    puts "procMsg_getContents(): Sending client reply.."
     @clientString = @clientReply.to_json
     @project.sendToClient(client, @clientString)
     puts "getContents(): Called #{jsonMsg}"

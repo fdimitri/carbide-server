@@ -8,15 +8,15 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     rq.each do |key,val|
       params[key] = val.to_s
     end
-    if (params['srcPath'].length == 1 && params['srcPath'][0] == '/')
-      params['srcPath'] = ''
-    end
-    if (params['srcPath'] && params['srcPath'].length > 1 && params['srcPath'][0] == '/')
-      params['srcPath'] = params['srcPath'][1..-1]
-    end
-    if (params['srcPath'] && params['srcPath'].length > 1 && params['srcPath'][-1] != '/')
-      params['srcPath']  = params['srcPath'] + '/'
-    end
+    # if (params['srcPath'].length == 1 && params['srcPath'][0] == '/')
+    #   params['srcPath'] = ''
+    # end
+    # if (params['srcPath'] && params['srcPath'].length > 1 && params['srcPath'][0] == '/')
+    #   params['srcPath'] = params['srcPath'][1..-1]
+    # end
+    # if (params['srcPath'] && params['srcPath'].length > 1 && params['srcPath'][-1] != '/')
+    #   params['srcPath']  = params['srcPath'] + '/'
+    # end
     return params
   end
 
@@ -220,7 +220,7 @@ class WebServer
       [$stdout, WEBrick::AccessLog::COMBINED_LOG_FORMAT],
     ]
     @root = File.expand_path(root)
-    @server = WEBrick::HTTPServer.new(:Port => port, :DocumentRoot => @root, :BindAddress => "0.0.0.0", :AccessLog => access_log, :ServerName => "172.17.0.42:6400")
+    @server = WEBrick::HTTPServer.new(:Port => port, :DocumentRoot => @root, :BindAddress => "0.0.0.0", :AccessLog => access_log, :ServerName => "172.17.0.42:#{port}")
     trap 'INT' do
       puts "Received INT.. shutting down server"
       @server.shutdown

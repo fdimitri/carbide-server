@@ -32,6 +32,8 @@ class TerminalBase
 		resizeSelf()
 	end
 
+	
+
 	def sendToClientsChar(c)
 		termMsg = {
 			'commandSet' => 'term',
@@ -115,19 +117,6 @@ class TerminalBase
 		sendToClients(clientString)
 	end
 
-	def procMsg(client, jsonMsg)
-		puts "Asked to process a message for myself: #{@termName} from client #{client.name}"
-		if (!getClient(client.websocket) && jsonMsg['command'] != 'join')
-			puts "Client has not formally joined the channel -- this is OK in alpha state, adding client implicitly"
-		end
-		if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
-			puts "Found a function handler for  #{jsonMsg['command']}"
-			self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg);
-		elsif
-			puts "There is no function to handle the incoming command #{jsonMsg['command']}"
-		end
-	end
-
 	def sendToClients(msg)
 		t = []
 		ccnt = @clients.count
@@ -168,6 +157,19 @@ class TerminalBase
 end
 
 class Terminal < TerminalBase
+	def procMsg(client, jsonMsg)
+		puts "Asked to process a message for myself: #{@termName} from client #{client.name}"
+		if (!getClient(client.websocket) && jsonMsg['command'] != 'join')
+			puts "Client has not formally joined the channel -- this is OK in alpha state, adding client implicitly"
+		end
+		if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
+			puts "Found a function handler for  #{jsonMsg['command']}"
+			self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg);
+		elsif
+			puts "There is no function to handle the incoming command #{jsonMsg['command']}"
+		end
+	end
+
 	def procMsg_inputChar(client, jsonMsg)
 		inputChar = jsonMsg['inputChar']
 		@input.print(inputChar['data'])
