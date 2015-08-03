@@ -15,6 +15,7 @@ class DocumentBase
     @t = { }
     @rng = Random.new(Time.now.to_i)
     @nonce = @rng.rand(1..9000)
+    @dbEntry = dbEntry
   end
 
   def addClient(client, ws)
@@ -40,11 +41,20 @@ class DocumentBase
   end
 
   def getHash(revision)
+    # This should be something like: myString = dbEntry.getDataByRevision(revision)
     myString = @data.join('\n')
     # puts "We should generate a hash here for this string: #{@myString}"
-    puts "Generating hash.."
-    digest = OpenSSL::Digest::MD5.hexdigest(myString)
+    digest = getMD5Hash(myString)
     return(digest)
+  end
+
+  def getMD5Hash(data)
+    if (data.is_a? String)
+      digest = OpenSSL::Digest::MD5.hexdigest(data)
+      return digest
+    end
+    puts "Data passed to us for hashing was not a string, we could use .to_s, to_json, or even YAML.dump in this case -- to be determined"
+    return false
   end
 
   def readFromFS()
@@ -107,8 +117,13 @@ class Document < DocumentBase
     puts "Asked to process a message for myself: #{name} from client #{client.name}"
     if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
       puts "Found a function handler for  #{jsonMsg['command']}"
-      self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg);
+      self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg)
       if (/(insert|delete)/.match(jsonMsg['command']))
+        if (@dbEntry.respond_to? ("recvMsg_#{jsonMsg['command']}"))
+           @dbEntry.send("recvMsg_#{jsonMsg['command']}", client, jsonMsg)
+         else
+           puts "dbEntry does not yet respond to recvMsg_#{jsonMsg['command']}"
+         end
         if (@t.length)
           puts "Still possibly waiting on " + @t.length.to_s + " threads to write.."
         end
@@ -150,7 +165,6 @@ class Document < DocumentBase
   end
 
   def procMsg_getContents(client, jsonMsg)
-
     @data.each { |d|
       if (d.is_a?(String))
         d = d.sub("\n","").sub("\r","")
@@ -169,7 +183,7 @@ class Document < DocumentBase
           'documentRevision' => @revision,
           'numLines' => @data.length,
           'docHash' => getHash(@revision),
-          'data' => @data.join("\n").force_encoding("ISO-8859-1").encode('utf-8'),
+          'data' => @data.join("\n").encode('utf-8'),
           'document' => @name,
         }
       }
@@ -178,7 +192,6 @@ class Document < DocumentBase
       puts YAML.dump(e)
       puts "Error: " + e.message
       puts "Backtrace: " + e.backtrace
-
     end
 
     puts "procMsg_getContents(): Sending client reply.."
@@ -213,7 +226,6 @@ class Document < DocumentBase
       'targetDocument' => document,
       'insertDataSingleLine' => {
         'status' => TRUE,
-        'hash' => 0xFF,
         'line' => line,
         'data' => data,
         'char' => char,
@@ -224,6 +236,7 @@ class Document < DocumentBase
       #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
     }
     @clientString = @clientReply.to_json
+    @clientReply['insertDataSingleLine']['hash'] = getMD5Hash(@clientString)
     @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
   end
 
@@ -310,7 +323,6 @@ class Document < DocumentBase
       end
     end
     puts "Done"
-    puts @data.inspect
     sendMsg_cInsertDataMultiLine(client, @name, n_startLine, startChar, length, data)
   end
 
@@ -553,31 +565,6 @@ class Document < DocumentBase
   end
 
   def procMsg_deleteMultiLine(client, jsonMsg)
-  end
-
-  def procInput(line, char, data, revision)
-    puts "Called with #{line} #{char} #{data} #{revision}"
-    if (@revision == revision)
-      puts "Revision same, no OT required"
-      if !@data[line]
-        puts "This is a new line"
-        @data.push(data)
-      else
-        puts "This line exists"
-        if (!@data.fetch(line).nil?)
-          @data.fetch(line, @data.fetch(line).insert(char, data))
-          #puts @data.fetch(line)
-        else
-          @data.fetch(line, @data.fetch(line).insert(char, data))
-          #puts @data.fetch(line)
-        end
-      end
-      @revision += 1
-      return TRUE
-    else
-      puts "We need OT in this case, failure -- was #{revision}, but we have #{@revision}"
-      return FALSE
-    end
   end
 
 end

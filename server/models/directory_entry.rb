@@ -22,7 +22,68 @@ class DirectoryEntry < ActiveRecord::Base
   end
 end
 
-class DirectoryEntryHelper < DirectoryEntry
+class DirectoryEntryCommandProcessor < DirectoryEntry
+  def recvMsg_insertDataMultiLine(client, jsonMsg)
+    startLine = jsonMsg['insertDataMultiLine']['startLine'].to_i
+    n_startLine = startLine
+    data = jsonMsg['insertDataMultiLine']['data']
+    startChar = jsonMsg['insertDataMultiLine']['startChar'].to_i
+    length = data.length
+    FileChange.create(:changeType => "insertDataMultiLine", :changeData => YAML.dump(jsonMsg), :startLine => startLine, :startChar => startChar, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+  end
+
+  def recvMsg_insertDataSingleLine(client, jsonMsg)
+    line = jsonMsg['insertDataSingleLine']['line'];
+    #data = jsonMsg['insertDataSingleLine']['data'][0].gsub("\n","")
+    odata = jsonMsg['insertDataSingleLine']['data']
+    data = odata.sub("\n", "").sub("\r", "")
+    char = jsonMsg['insertDataSingleLine']['ch'].to_i
+    if (!data.is_a?(String))
+      return false
+    end
+    length = data.length
+    FileChange.create(:changeType => "insertDataSingleLine", :changeData => YAML.dump(jsonMsg), :startLine => line, :startChar => char, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+  end
+
+  def recvMsg_deleteDataSingleLine(client, jsonMsg)
+    line = jsonMsg['deleteDataSingleLine']['line'].to_i
+    data = jsonMsg['deleteDataSingleLine']['data'].to_s
+    char = jsonMsg['deleteDataSingleLine']['ch'].to_i
+    length = data.length
+    FileChange.create(:changeType => "deleteDataSingleLine", :changeData => YAML.dump(jsonMsg), :startLine => line, :startChar => char, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+  end
+
+  def recvMsg_deleteDataMultiLine(client, jsonMsg)
+    ml = jsonMsg['deleteDataMultiLine']
+    startChar = ml['startChar'].to_i
+    startLine = ml['startLine'].to_i
+    endChar = ml['endChar'].to_i
+    endLine = ml['endLine'].to_i
+    lineData = ml['data']
+    FileChange.create(:changeType => "deleteDataMultiLine", :changeData => YAML.dump(jsonMsg), :startLine => startLine, :startChar => startChar, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+  end
+
+  def calcCurrent
+    #This function takes us from revision 0 to current, we have no "key frames", but those will be added in the future to reduce processing time
+    myDocument = [];
+    self.filechanges.each do |change|
+      if (self.respond_to?("cmd_" + change.changeType))
+        myDocument = self.send("cmd_" + change.changeType, myDocument, change)
+      end
+    end
+    puts "calcCurrent gave me an " + YAML.dump(myDocument).to_s.length.to_s  + " byte document"
+    return {:data => myDocument}
+  end
+
+  def cmd_setContents(myDocument, change)
+    puts "cmd_setContents " + self.srcpath
+    myDocument = YAML.load(change.changeData)
+    return(myDocument)
+  end
+end
+
+
+class DirectoryEntryHelper < DirectoryEntryCommandProcessor
   def setOptions(projName, sProject)
     @ProjectName = projName
     @Project = sProject
@@ -145,23 +206,6 @@ class DirectoryEntryHelper < DirectoryEntry
     return(false)
   end
 
-  def calcCurrent
-    #This function takes us from revision 0 to current, we have no "key frames", but those will be added in the future to reduce processing time
-    myDocument = [];
-    self.filechanges.each do |change|
-      if (self.respond_to?("cmd_" + change.changeType))
-        myDocument = self.send("cmd_" + change.changeType, myDocument, change)
-      end
-    end
-    puts "calcCurrent gave me an " + YAML.dump(myDocument).to_s.length.to_s  + " byte document"
-    return {:data => myDocument}
-  end
-
-  def cmd_setContents(myDocument, change)
-    puts "cmd_setContents " + self.srcpath
-    myDocument = YAML.load(change.changeData)
-    return(myDocument)
-  end
 
   def createFile(fileName, userId=nil, data=nil, mkdirp = false)
 		puts "createFile(): Waiting for mutex "
@@ -232,7 +276,7 @@ class DirectoryEntryHelper < DirectoryEntry
     end
 
     if (!@Project.getDocument(fileName))
-      @Project.addDocument(fileName)
+      @Project.addDocument(fileName, x)
     end
 
     if (data.is_a?(String) || data)
@@ -330,7 +374,7 @@ class DirectoryEntryHelper < DirectoryEntry
 end
 
 class FileTreeX < DirectoryEntryHelper
-  def initiailize
+  def initialize
     super
     @newestEntry = false
     @cachedJSONTree = false

@@ -3,7 +3,7 @@ class FileChange < ActiveRecord::Base
   # has_many :children, class_name: "DirectoryEntry", foreign_key: "owner_id", foreign_type: "DirectoryEntry"
 
   belongs_to :User, class_name: "User", primary_key: "User_id", foreign_key: "id"
-  belongs_to :DirectoryEntry, class_name: "DirectoryEntry", primary_key: "DirectoryEntry_id", foreign_key: "id"
+  belongs_to :DirectoryEntry, class_name: "DirectoryEntryHelper", primary_key: "DirectoryEntry_id", foreign_key: "id"
 
   def self.create(params)
     puts "Entering FileChange::create() function"
@@ -32,8 +32,13 @@ class FileChange < ActiveRecord::Base
     fileChange = FileChange.new(params)
     puts "FileChange::create(): Call save!"
     fileChange.save!
-    return(params)
+    de = fileChange.DirectoryEntry
+    if (de.ftype == file)
+      fileChange.DirectoryEntry.updateDocumentRevision()
+    end
+    return(fileChange)
   end
+
 end
 
 class FileChangeHelper < FileChange

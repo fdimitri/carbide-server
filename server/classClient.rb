@@ -6,13 +6,16 @@ class Client
 	attr_accessor	:chats
 	attr_accessor	:documents
 	attr_accessor	:terms
-
+	attr_accessor :userId
+	attr_accessor :user
 	def initialize(websocket)
 		@websocket = websocket
 		@documents = { }
 		@chats = { }
 		@name = ""
 		@terms = { }
+		@userId = 1
+		@user = User.find_by_id(@userId)
 	end
 
 	def sendMsg(msg)

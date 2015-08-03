@@ -329,8 +329,8 @@ class Project
 
 
 
-  def addDocument(documentName)
-    document = Document.new(self, documentName, @baseDirectory);
+  def addDocument(documentName, dbEntry = nil)
+    document = Document.new(self, documentName, @baseDirectory, dbEntry);
     @documents[documentName] = document;
     return getDocument(documentName)
   end
