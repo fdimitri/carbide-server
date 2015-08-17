@@ -4,6 +4,7 @@ class FileChange < ActiveRecord::Base
 
   belongs_to :User, class_name: "User", primary_key: "User_id", foreign_key: "id"
   belongs_to :DirectoryEntry, class_name: "DirectoryEntryHelper", primary_key: "DirectoryEntry_id", foreign_key: "id"
+#  has_one :DirectoryEntry, class_name: "DirectoryEntryHelper", primary_key: "DirectoryEntry_id"
 
   def self.create(params)
     puts "Entering FileChange::create() function"
@@ -32,10 +33,11 @@ class FileChange < ActiveRecord::Base
     fileChange = FileChange.new(params)
     puts "FileChange::create(): Call save!"
     fileChange.save!
-    de = fileChange.DirectoryEntry
-    if (de.ftype == file)
-      fileChange.DirectoryEntry.updateDocumentRevision()
-    end
+    puts "FileChange::create(): save! called, returning fileChange entry.."
+    #puts YAML.dump(fileChange)
+    #puts YAML.dump(fileChange.methods)
+    #puts YAML.dump(fileChange.DirectoryEntry)
+    #de = fileChange.DirectoryEntry
     return(fileChange)
   end
 

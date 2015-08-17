@@ -183,7 +183,7 @@ class Project
 
   def procMsg_createTerm(ws,msg)
     createTerm = msg['createTerm']
-    if (!getChat(createTerm['termName']))
+    if (!getTerminal(createTerm['termName']))
       addTerm(createTerm['termName'])
     end
     client = @clients[ws]
@@ -335,7 +335,7 @@ class Project
     return getDocument(documentName)
   end
 
-  def getDocument(documentName)
+  def getDocument(documentName, autoCreate = false)
     if (@documents[documentName])
       return @documents[documentName];
     end

@@ -30,6 +30,11 @@ class DocumentBase
     return @revision
   end
 
+  def getContents
+    data = @data.join("\n").force_encoding('ISO-8859-1').encode('utf-8')
+    return data
+  end
+
   def getRevisionData(revision)
     if (revision == @revision)
       return @data
@@ -120,10 +125,10 @@ class Document < DocumentBase
       self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg)
       if (/(insert|delete)/.match(jsonMsg['command']))
         if (@dbEntry.respond_to? ("recvMsg_#{jsonMsg['command']}"))
-           @dbEntry.send("recvMsg_#{jsonMsg['command']}", client, jsonMsg)
-         else
-           puts "dbEntry does not yet respond to recvMsg_#{jsonMsg['command']}"
-         end
+          @dbEntry.send("recvMsg_#{jsonMsg['command']}", client, jsonMsg)
+        else
+          puts "dbEntry does not yet respond to recvMsg_#{jsonMsg['command']}"
+        end
         if (@t.length)
           puts "Still possibly waiting on " + @t.length.to_s + " threads to write.."
         end
@@ -200,7 +205,6 @@ class Document < DocumentBase
     puts "getContents(): Called #{jsonMsg}"
     puts "Returning:"
     puts @clientReply
-
   end
 
   def procMsg_getInfo(client, jsonMsg)
@@ -290,8 +294,17 @@ class Document < DocumentBase
     data = jsonMsg['insertDataMultiLine']['data']
     startChar = jsonMsg['insertDataMultiLine']['startChar'].to_i
     length = data.length
-    puts "insertDataMultiLine(): Called #{jsonMsg}"
+    rval = do_insertDataMultiLine(client, jsonMsg)
+    data = rval['data']
+    sendMsg_cInsertDataMultiLine(client, @name, n_startLine, startChar, length, data)
+  end
 
+  def do_insertDataMultiLine(client, jsonMsg)
+    startLine = jsonMsg['insertDataMultiLine']['startLine'].to_i
+    n_startLine = startLine
+    data = jsonMsg['insertDataMultiLine']['data']
+    startChar = jsonMsg['insertDataMultiLine']['startChar'].to_i
+    length = data.length
     if (@data[startLine].nil?)
       @data.push(data[0].to_str);
     else
@@ -303,12 +316,11 @@ class Document < DocumentBase
           str.insert(a, " ")
           a += 1
         end
-
-        puts "#{str.length} is less than #{char}.. this may crash"
+        # puts "#{str.length} is less than #{char}.. this may crash"
       end
       str.insert(startChar, data[0])
       @data.fetch(startLine, str)
-      puts "OK! " + @data.fetch(startLine)
+      # puts "OK! " + @data.fetch(startLine)
     end
 
     puts data[1..-1].inspect
@@ -319,95 +331,99 @@ class Document < DocumentBase
         @data.insert(startLine, cline.to_s);
       else
         @data.insert(startLine, cline.to_s);
-        puts "Need to write function handler for existing data"
+        # puts "Need to write function handler for existing data"
       end
     end
-    puts "Done"
-    sendMsg_cInsertDataMultiLine(client, @name, n_startLine, startChar, length, data)
+    return({'success' => 'true', 'data' => data})
   end
 
-  def procMsg_insertDataSingleLineOld(client, jsonMsg)
-    line = jsonMsg['insertDataSingleLine']['line'];
-    #data = jsonMsg['insertDataSingleLine']['data'][0].gsub("\n","")
-    odata = jsonMsg['insertDataSingleLine']['data']
-    data = odata.sub("\n", "").sub("\r", "")
-    char = jsonMsg['insertDataSingleLine']['ch'].to_i
 
-    if (!data.is_a?(String))
-      puts "Data was not of type string"
-      puts data.inspect
-    end
-
-    length = data.length
-    puts "insertDataSingleLine(): Called #{jsonMsg}"
-
-    if (@data[line].nil? || !length)
-      @data.insert(line, data.to_str);
-    else
-      appendToLine(line, char, data)
-    end
-
-    sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
-
-  end
 
   def procMsg_insertDataSingleLine(client, jsonMsg)
     line = jsonMsg['insertDataSingleLine']['line'];
-    #data = jsonMsg['insertDataSingleLine']['data'][0].gsub("\n","")
     odata = jsonMsg['insertDataSingleLine']['data']
     data = odata.sub("\n", "").sub("\r", "")
     char = jsonMsg['insertDataSingleLine']['ch'].to_i
+    length = data.length
 
     if (!data.is_a?(String))
       puts "Data was not of type string"
       puts data.inspect
+      return false
     end
-    puts "YAML @data"
-    puts YAML.dump(@data)
+    rval = do_insertDataSingleLine(client, jsonMsg)
+    if (!rval)
+      return false
+    end
+    puts "Sending message to self :sendMsg_cInsertDataSingleLine.."
+    begin
+      puts YAML.dump(rval)
+      params = rval['replyParams']
+      self.send(:sendMsg_cInsertDataSingleLine, *params)
+    rescue Exception => e
+      puts "Failed!"
+      puts YAML.dump(e)
+      puts "Error: " + e.message
+      puts "Backtrace: " + e.backtrace
+
+    end
+  end
+
+  def do_insertDataSingleLine(client, jsonMsg)
+    line = jsonMsg['insertDataSingleLine']['line'];
+    odata = jsonMsg['insertDataSingleLine']['data']
+    data = odata.sub("\n", "").sub("\r", "")
+    char = jsonMsg['insertDataSingleLine']['ch'].to_i
     length = data.length
-    puts "insertDataSingleLine(): Called #{jsonMsg}"
-    puts "Odata is: " + odata.inspect
+    if (!data.is_a?(String))
+      puts "Data was not of type string"
+      puts data.inspect
+      return false
+    end
+
+    # puts "YAML @data"
+    # puts YAML.dump(@data)
+    # puts "insertDataSingleLine(): Called #{jsonMsg}"
+    # puts "Odata is: " + odata.inspect
     if ((odata == "\n" || odata == '\n'))
-      puts "odata is a newline.."
       if (char == 0)
         @data.insert(line, "")
-        sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
-        return true
-      end
-      myStr = @data.fetch(line)
-      if (!myStr)
-        puts "There was no existing data, just insert lines"
-        myStr = ""
-        @data.insert(line, myStr)
-        @data.insert(line+1, myStr)
-        puts "YAML @data"
-        puts YAML.dump(@data)
-        sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
-        return true
-      end
-      begStr = myStr[0..(char - 1)]
-      endStr = myStr[(char)..-1]
-      puts "endStr is " + endStr.inspect
-      puts "begStr is " + begStr.inspect
-      puts "@data.fetch(line) before change is " + @data.fetch(line).to_s
-      puts "Write begstr to " + line.to_s
-      @data.delete_at(line)
-      @data.insert(line, begStr)
-      #@data.fetch(line, begStr)
-      puts "@data.fetch(line) after change is " + @data.fetch(line).to_s
-      if (endStr)
-        puts "Write endstr to " + (line + 1).to_s
-        @data.insert((line + 1), endStr)
+        return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
       else
-        puts "Insert empty string at " + (line + 1).to_s
-        @data.insert((line + 1), "")
+        myStr = @data.fetch(line)
+        if (!myStr)
+          # puts "There was no existing data, just insert lines"
+          myStr = ""
+          @data.insert(line, myStr)
+          @data.insert(line+1, myStr)
+          # puts "YAML @data"
+          # puts YAML.dump(@data)
+          return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
+        else
+          begStr = myStr[0..(char - 1)]
+          endStr = myStr[(char)..-1]
+          # puts "endStr is " + endStr.inspect
+          # puts "begStr is " + begStr.inspect
+          # puts "@data.fetch(line) before change is " + @data.fetch(line).to_s
+          # puts "Write begstr to " + line.to_s
+          @data.delete_at(line)
+          @data.insert(line, begStr)
+          #@data.fetch(line, begStr)
+          # puts "@data.fetch(line) after change is " + @data.fetch(line).to_s
+          if (endStr)
+            # puts "Write endstr to " + (line + 1).to_s
+            @data.insert((line + 1), endStr)
+          else
+            # puts "Insert empty string at " + (line + 1).to_s
+            @data.insert((line + 1), "")
+          end
+          # puts "data.fetch(line) is " + @data.fetch(line).to_s
+          # puts "data.fetch(line + 1) is " + @data.fetch(line + 1).to_s
+          # puts "YAML @data"
+          # puts YAML.dump(@data)
+          return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
+        end
       end
-      puts "data.fetch(line) is " + @data.fetch(line).to_s
-      puts "data.fetch(line + 1) is " + @data.fetch(line + 1).to_s
-      puts "YAML @data"
-      puts YAML.dump(@data)
-      sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
-      return true
     end
 
     if (@data[line].nil?)
@@ -415,8 +431,7 @@ class Document < DocumentBase
     else
       appendToLine(line, char, data)
     end
-
-    sendMsg_cInsertDataSingleLine(client, @name, line, odata, char, length, @data[line])
+    return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
   end
 
   def appendToLine(line, char, data)
@@ -431,12 +446,11 @@ class Document < DocumentBase
         str.insert(a, " ")
         a += 1
       end
-
       puts "#{str.length} is less than #{char}.. this may crash"
     end
     str.insert(char, data)
     @data.fetch(line, str)
-    puts "OK! " + @data.fetch(line)
+    # puts "OK! " + @data.fetch(line)
   end
 
   # This is almost done, needs some tweaks!
@@ -446,9 +460,24 @@ class Document < DocumentBase
     char = jsonMsg['deleteDataSingleLine']['ch'].to_i
     length = data.length
     deleteDataSingleLine(client, line,data,char,length)
+    sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
+  end
+
+  def do_deleteDataSingleLine(client, jsonMsg)
+    line = jsonMsg['deleteDataSingleLine']['line'].to_i
+    data = jsonMsg['deleteDataSingleLine']['data'].to_s
+    char = jsonMsg['deleteDataSingleLine']['ch'].to_i
+    length = data.length
+    deleteDataSingleLine(client, line, data, char, length)
   end
 
   def procMsg_deleteDataMultiLine(client, jsonMsg)
+    ml = jsonMsg['deleteDataMultiLine']
+    do_deleteDataMultiLine(client, jsonMsg)
+    sendMsg_cDeleteDataMultiLine(client, @name, ml)
+  end
+
+  def do_deleteDataMultiLine(client, jsonMsg)
     ml = jsonMsg['deleteDataMultiLine']
     startChar = ml['startChar'].to_i
     startLine = ml['startLine'].to_i
@@ -460,7 +489,6 @@ class Document < DocumentBase
       @data.delete_at(startLine)
       i += 1
     end
-    sendMsg_cDeleteDataMultiLine(client, @name, ml)
   end
 
   def sendMsg_cDeleteDataMultiLine(client, document, ml)
@@ -481,23 +509,6 @@ class Document < DocumentBase
 
   end
 
-  def sendMsg_cDeleteLine(client, document, line)
-    @clientReply = {
-      'commandSet' => 'document',
-      'command' => 'deleteLine',
-      'targetDocument' => name,
-      'deleteLine' => {
-        'status' => TRUE,
-        'sourceUser' => client.name,
-        'document' => document,
-        'line' => line,
-      },
-      #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
-    }
-    @clientString = @clientReply.to_json
-    @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
-  end
-
   def deleteDataSingleLine(client, line,data,char,length)
     puts "deleteDataSingleLine(): Called  .. deleting " + data.inspect
     if (@data[line].nil?)
@@ -506,23 +517,22 @@ class Document < DocumentBase
       return FALSE
     end
     if (data === "\n")
-      puts YAML.dump(@data)
-      #@data.fetch(line, @data.fetch(line).slice!(char))
+      # puts YAML.dump(@data)
+      # -- @data.fetch(line, @data.fetch(line).slice!(char))
       if (@data.length > (line + 1))
         oldLine = @data.fetch(line) + @data.fetch(line+1)
         @data.delete_at(line)
         @data.insert(line, oldLine)
-        #@data.(line, @data.fetch(line) + @data.fetch(line + 1))
+        # -- @data.(line, @data.fetch(line) + @data.fetch(line + 1))
         puts "Deleting line at " + (line + 1).to_s
         @data.delete_at(line + 1)
       end
-      puts YAML.dump(@data)
-      sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
+      # puts YAML.dump(@data)
       return true
     end
     @str = @data.fetch(line).to_str
     @substr = @str[char..(char + length - 1)]
-    puts "Substr calculated to be " + @substr.inspect
+    # puts "Substr calculated to be " + @substr.inspect
 
     if (@substr == data)
       if (char > 0)
@@ -545,15 +555,14 @@ class Document < DocumentBase
       end
 
       @data[line] = @str
-      puts "OK! " + @substr + " should match " +  data
-      puts "New string is " + @str
+      # puts "OK! " + @substr + " should match " +  data
+      # puts "New string is " + @str
       puts @data.fetch(line, @str)
-      sendMsg_cDeleteDataSingleLine(client, @name, line, data, char, length, @data[line])
-      return TRUE
+      return true
     else
       puts "Deleted data #{data} did not match data at string position #{char} with length #{length}! Server reports data is #{@substr}"
       #client.sendMsg_Fail('deleteDataSingleLine');
-      return FALSE
+      return false
     end
 
   end
