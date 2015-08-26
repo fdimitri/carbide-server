@@ -166,7 +166,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       puts "Caught error.. #{e.type} with message of #{e.message}"
       return(false)
     end
-    return(res)
+    return(res.updated_at)
   end
 
 
@@ -460,11 +460,21 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     return newDir
   end
 
-  def rename(newName, newSrcPath)
-    newSrcPath = getDirectory(self.srcpath).join().to_s + "#{newName}"
+  def rename(newName, newSrcPath = false)
+    if (!newSrcPath)
+      newSrcPath = getDirectory(self.srcpath).join().to_s + newName
+    end
+    if (self.ftype == 'directory')
+      return(false)
+    end
     self.curName = newName;
     self.srcpath = newSrcPath;
     self.save!
+    if (self.ftype == 'directory')
+      # We need some logic to re-write all the 'srcPaths'
+      rewriteSrcPathForChildren()
+    end
+    return(true)
   end
 
 end
@@ -644,7 +654,18 @@ class FileTreeX < DirectoryEntryHelper
     #def createFile(fileName, userId=nil, data=nil, mkdirp = false)
     #Temporarily attribute all changes to user 1, we should use client.id when
     #A&A is implemented
-
+    if (srcPath[-1] == '/')
+      # Account for trailing slashes, including the root directory _and remove them_
+      if (srcPath.length > 1)
+        srcPath = srcPath[0..-2]
+      else
+        srcPath = ''
+      end
+    end
+    if (srcPath == '/')
+      # Otherwise we append an extra / to account for directories not ending in /
+      srcPath = ''
+    end
     begin
       ctr = 0
       until (!fileExists(srcPath + "/Untitled" + ctr.to_s))
@@ -716,31 +737,67 @@ class FileTreeX < DirectoryEntryHelper
     begin
       STDERR.puts YAML.dump(jsonMsg)
       tData = jsonMsg['renameEntry']
-      STDERR.puts "Set srcPath"
       srcPath = tData['srcPath']
-      STDERR.puts "Set newName"
       newName = tData['newName']
-      STDERR.puts "srcPath: " + srcPath.inspect.to_s
-      STDERR.puts "srcPath: " + srcPath.class.to_s
-      STDERR.puts "newName: " + newName.inspect.to_s
-      STDERR.puts "newName: " + newName.class.to_s
-
-      STDERR.puts "fEntry = DEH.find_by"
+      hash = tData['hash']
       if (tData['srcPath'] == '/')
+        # Can't rename root directory..
         return(false)
       end
 
       fEntry = DirectoryEntryHelper.find_by_srcpath(srcPath)
       if (!fEntry)
-        STDERR.puts "procMsg_renameEntry unable to find by srcPath "  + srcPath
+        STDERR.puts "procMsg_renameEntry unable to find file/directory entry by srcPath "  + srcPath
         return(false)
       end
       STDERR.puts "Call rename with newName"
-      fEntry.rename(newName)
+      rval = fEntry.rename(newName)
+      if (!rval)
+        clientReply = {
+          'commandSet' => 'FileTree',
+          'command' => 'renameEntry',
+          'hash' => hash,
+          'renameEntry' => {
+            'status' => false,
+            'errorReasons' => ['Failed rename() call'],
+          }
+        }
+        @Project.sendToClient(client, clientReply.to_json)
+        return(false)
+      end
+
+      if (srcPath == '/' || srcPath == "")
+        ownerName = "ftroot0"
+      else
+        ownerName = sanitizeName('folder', fEntry.owner.srcpath)
+      end
+
+      fileTreeNode = {
+        'id' => sanitizeName('file', fEntry.srcpath),
+        'parent' => ownerName,
+        'text' => fEntry.curName,
+        'type' => 'file',
+        'li_attr' => {
+          "class" => 'jsTreeFile',
+          "srcPath" => fEntry.srcpath,
+        },
+      }
+      clientReply = {
+        'commandSet' => 'FileTree',
+        'command' => 'renameEntry',
+        'hash' => hash,
+        'renameEntry' => {
+          'status' => true,
+          'errorReasons' => false,
+          'srcPath' => fEntry.srcpath,
+          'deleteFileTreeObject' => sanitizeName(fEntry.ftype, srcPath),
+          'replacementFileTreeObject' => fileTreeNode,
+        }
+      }
+      @Project.sendToClient(client, clientReply.to_json)
     rescue Exception, TypeError, NameError => e
       STDERR.puts "Rescued from error: #{e}"
     end
-
   end
 
   def procMsg_deleteEntry(client, jsonMsg)
