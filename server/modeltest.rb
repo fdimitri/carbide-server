@@ -1,15 +1,20 @@
-require 'em-websocket'
-require 'json'
-require 'yaml'
-require 'rubygems'
-require 'active_record'
-require 'logger'
-require 'sqlite3'
-require 'bcrypt'
-require 'rails-erd'
-require 'mysql2'
-require 'openssl'
+#require 'em-websocket'
+#require 'json'
+#require 'yaml'
+#require 'rubygems'
+#require 'active_record'
+#require 'logger'
+#require 'sqlite3'
+#require 'bcrypt'
+#require 'rails-erd'
+#require 'mysql2'
+#require 'openssl'
 
+
+
+require 'rails/all'
+require 'bundler'
+Bundler.require(*Rails.groups)
 Dir["./class*rb"].each { |file|
   puts "Require: " + file
   require file
@@ -31,9 +36,18 @@ Dir["./models/*rb"].each {| file|
   require file
 }
 
-#ActiveRecord::Base.logger = Logger.new('debug.log')
+Dir["./client_models/*rb"].sort.each { |file|
+  puts "Require: " + file
+  require file
+}
+
+ActiveRecord::Base.logger = Logger.new('ActiveRecord-debug.log')
+
 configuration = YAML::load(IO.read('config/database.yml'))
+#clientconfig = YAML::load(IO.read('../../carbide-client/config/database.yml'))
+
 ActiveRecord::Base.establish_connection(configuration['development'])
+#ActiveRecord::Base.establish_connection(clientconfig['development'])
 
 class String
   def is_json?
@@ -46,7 +60,7 @@ class String
 end
 
 
-class Project
+class ProjectServer
   attr_accessor	:clients
   attr_accessor	:documents
   attr_accessor	:chats
@@ -68,18 +82,6 @@ class Project
     @FileTree.setOptions(projectName, self)
     @baseDirectory = "/var/www/html/carbide-server";
     readTree()
-    # @FileTree.mkDir("/server/source");
-    # @FileTree.mkDir("/client/html");
-    # @FileTree.createFile("/server/source/test.rb");
-    # @FileTree.createFile("/server/source/server.rb");
-    # @FileTree.createFile("/server/source/cProject.rb");
-    # @FileTree.createFile("/server/source/cFileTree.rb");
-    # @FileTree.createFile("/server/source/cDocument.rb");
-    # @FileTree.createFile("/client/html/testView.html");
-    # @FileTree.printTree()
-    #puts @FileTree.htmlTree()
-    #puts @FileTree.jsonTree()
-    #procMsg_getChatListJSON()
     for n in 0..0
       #Lots of bash consoles and chats by default to stress test and
       # to check GUI functionality
@@ -493,22 +495,9 @@ end
 
 
 
-newUsers = [
-    { :userName => "FrankD", :firstName => "Frank", :lastName => "DiMitri", :email => "frankd412@gmail.com", :password => "bx115" },
-    { :userName => "MikeW", :firstName => "Mike", :lastName => "Weird", :email => "mikew@frank-d.info", :password => "mikew" },
-    { :userName => "jnieves", :firstName => "John", :lastName => "Nieves", :email => "john@frank-d.info", :password => "badpassword" },
-]
-
-
-if (newUsers.count > 0)
-  newUsers.each do |u|
-    a = User.create(u)
-  end
-end
-
 @myProject = nil
 @webServer = nil
-@myProject = Project.new('CARBIDE-SERVER')
+@myProject = ProjectServer.new('CARBIDE-SERVER')
 puts "Using directory " + File.expand_path(File.dirname(__FILE__) + "/../")
 @webServer = WebServer.new(6400, File.expand_path(File.dirname(__FILE__) + "/../"))
 Thread.abort_on_exception = false
