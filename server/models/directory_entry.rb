@@ -733,6 +733,108 @@ class FileTreeX < DirectoryEntryHelper
     end
   end
 
+  def procMsg_createDirectory(client, jsonMsg)
+    tData = jsonMsg['createDirectory']
+    srcPath = tData['srcPath']
+    hash = jsonMsg['hash']
+    #def createFile(fileName, userId=nil, data=nil, mkdirp = false)
+    #Temporarily attribute all changes to user 1, we should use client.id when
+    #A&A is implemented
+    if (srcPath[-1] == '/')
+      # Account for trailing slashes, including the root directory _and remove them_
+      if (srcPath.length > 1)
+        srcPath = srcPath[0..-2]
+      else
+        srcPath = ''
+      end
+    end
+    if (srcPath == '/')
+      # Otherwise we append an extra / to account for directories not ending in /
+      srcPath = ''
+    end
+    begin
+      ctr = 0
+      until (!fileExists(srcPath + "/Untitled" + ctr.to_s))
+        ctr = ctr + 1
+      end
+
+      newFileName = "Untitled" + ctr.to_s
+      nFile = mkDir(srcPath + "/Untitled" + ctr.to_s, 1)
+
+      if (srcPath == '/' || srcPath == "")
+        ownerName = "ftroot0"
+      else
+        ownerName = sanitizeName('folder', srcPath)
+      end
+
+      # if (nFile['status'] == false)
+      #   clientReply = {
+      #     'commandSet' => 'FileTree',
+      #     'command' => 'createFile',
+      #     'hash' => hash,
+      #     'createFile' => {
+      #       'status' => nFile['status'],
+      #       'errorReasons' => nFile['errorReasons'],
+      #     }
+      #   }
+      #   @Project.sendToClient(client, clientReply.to_json)
+      #   return
+      # end
+      if (!nFile)
+        clientReply = {
+          'commandSet' => 'FileTree',
+          'command' => 'createDirectory',
+          'hash' => hash,
+          'createDirectory' => {
+            'status' => false,
+            'errorReasons' => ['NYI',"We haven't added error reasons to mkDir depending on calling function type yet.. mkDir() should never fail, though -- check the server logs"]
+          }
+        }
+        @Project.sendToClient(client, clientReply.to_json)
+        return(false);
+      end
+      fileTreeNode = {
+        'id' => sanitizeName('folder', nFile.srcpath),
+        'parent' => ownerName,
+        'text' => nFile.curName,
+        'type' => 'folder',
+        'li_attr' => {
+          "class" => 'jsTreeFolder',
+          "srcPath" => nFile.srcpath,
+        },
+      }
+      clientReply = {
+        'commandSet' => 'FileTree',
+        'command' => 'createDirectory',
+        'hash' => hash,
+        'createDirectory' => {
+          'status' => true,
+          'errorReasons' => false,
+          'srcPath' => nFile.srcpath,
+          'node' => fileTreeNode,
+        }
+      }
+      @Project.sendToClient(client, clientReply.to_json)
+      broadcastReply = {
+        'commandSet' => 'FileTree',
+        'command' => 'createDirectory',
+        'createDirectory' => {
+          'createdBy' => client.name,   # client.id
+          'srcPath' => nFile.srcpath,
+        }
+      }
+      @Project.sendToClientsExcept(client, broadcastReply.to_json)
+      puts "procMsg_createDirectory()) exit"
+    rescue Exception => e
+      puts YAML.dump(e)
+      puts "Caught error.. #{e.type} with message of #{e.message}"
+      return(false)
+    end
+    return(true)
+  end
+
+
+
   def procMsg_renameEntry(client, jsonMsg)
     begin
       STDERR.puts YAML.dump(jsonMsg)
@@ -741,7 +843,16 @@ class FileTreeX < DirectoryEntryHelper
       newName = tData['newName']
       hash = tData['hash']
       if (tData['srcPath'] == '/')
-        # Can't rename root directory..
+        clientReply = {
+          'commandSet' => 'FileTree',
+          'command' => 'renameEntry',
+          'hash' => hash,
+          'renameEntry' => {
+            'status' => false,
+            'errorReasons' => ["NYI","You can't rename the root directory at this time (not even the nice name.. ie NYI)"],
+          }
+        }
+        @Project.sendToClient(client, clientReply.to_json)
         return(false)
       end
 
@@ -750,6 +861,21 @@ class FileTreeX < DirectoryEntryHelper
         STDERR.puts "procMsg_renameEntry unable to find file/directory entry by srcPath "  + srcPath
         return(false)
       end
+
+      if (fEntry.ftype == 'folder')
+        clientReply = {
+          'commandSet' => 'FileTree',
+          'command' => 'renameEntry',
+          'hash' => hash,
+          'renameEntry' => {
+            'status' => false,
+            'errorReasons' => ["NYI",'Renaming directories is not yet implemented'],
+          }
+        }
+        @Project.sendToClient(client, clientReply.to_json)
+        return(false)
+      end
+
       STDERR.puts "Call rename with newName"
       rval = fEntry.rename(newName)
       if (!rval)
