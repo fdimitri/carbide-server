@@ -98,14 +98,15 @@ class TaskBoard
 
   def procMsg(client, jsonMsg)
     puts "Asked to process a message for myself: #{@taskName} from client #{client.name}"
-    if (!getClient(client.websocket) && jsonMsg['taskCommand'] != 'joinTask')
+    if (!getClient(client.websocket) && jsonMsg['taskCommand'] != 'joinTaskBoard')
       puts "Client has not formally joined the Task -- this is OK in alpha state, adding client implicitly"
     end
     if (self.respond_to?("procMsg_#{jsonMsg['taskCommand']}"))
       puts "Found a function handler for  #{jsonMsg['taskCommand']}"
-      self.send("procMsg_#{jsonMsg['taskCommand']}", client, jsonMsg);
+      self.send("procMsg_#{jsonMsg['taskCommand']}", client, jsonMsg)
     elsif
-      puts "There is no function to handle the incoming command #{jsonMsg['taskCommand']}"
+      puts "There is no function to handle the incoming command #{jsonMsg['taskCommand']} .. using default handler until all functions are written"
+      procMsgDefaultHandler(client, jsonMsg)
     end
   end
 
@@ -132,256 +133,17 @@ class TaskBoard
     sendToClient(client, clientString)
   end
 
-  def procMsg_createTaskColumn(client, jsonMsg)
-    createTaskColumn = jsonMsg['createTaskColumn']
-    createTaskColumn['status'] = true
-    createTaskColumn['errorReasons'] = false
+  def procMsgDefaultHandler(client, jsonMsg)
+    curCommand = jsonMsg['taskCommand']
+    replyObject = jsonMsg[curCommand]
+    replyObject['status'] = true
+    replyObject['errorReasons'] = false
     clientReply = {
       'commandSet' => 'taskBoard',
       'commandReply' => true,
-      'taskCommand' => 'createTaskColumn',
+      'taskCommand' => curCommand,
       'hash' => jsonMsg['hash'],
-      'createTaskColumn' => createTaskColumn,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_createTaskRow(client, jsonMsg)
-    createTaskRow = jsonMsg['createTaskRow']
-    createTaskRow['status'] = true
-    createTaskRow['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'createTaskRow',
-      'hash' => jsonMsg['hash'],
-      'createTaskRow' => createTaskRow,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_deleteTaskColumn(client, jsonMsg)
-    deleteTaskColumn = jsonMsg['deleteTaskColumn']
-    deleteTaskColumn['status'] = true
-    deleteTaskColumn['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'deleteTaskColumn',
-      'hash' => jsonMsg['hash'],
-      'deleteTaskColumn' => deleteTaskColumn,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_deleteTaskRow(client, jsonMsg)
-    deleteTaskRow = jsonMsg['deleteTaskRow']
-    deleteTaskRow['status'] = true
-    deleteTaskRow['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'deleteTaskRow',
-      'hash' => jsonMsg['hash'],
-      'deleteTaskRow' => deleteTaskRow,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_moveTaskRow(client, jsonMsg)
-    moveTaskRow = jsonMsg['moveTaskRow']
-    moveTaskRow['status'] = true
-    moveTaskRow['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'moveTaskRow',
-      'hash' => jsonMsg['hash'],
-      'moveTaskRow' => moveTaskRow,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_moveTaskColumn(client, jsonMsg)
-    moveTaskColumn = jsonMsg['moveTaskColumn']
-    moveTaskColumn['status'] = true
-    moveTaskColumn['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'moveTaskColumn',
-      'hash' => jsonMsg['hash'],
-      'moveTaskColumn' => moveTaskColumn,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_changeCellColor(client, jsonMsg)
-    changeCellColor = jsonMsg['changeCellColor']
-    changeCellColor['status'] = true
-    changeCellColor['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'changeCellColor',
-      'hash' => jsonMsg['hash'],
-      'changeCellColor' => changeCellColor,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_createTask(client, jsonMsg)
-    createTask = jsonMsg['createTask']
-    createTask['status'] = true
-    createTask['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'createTask',
-      'hash' => jsonMsg['hash'],
-      'createTask' => createTask,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_moveTask(client, jsonMsg)
-    moveTask = jsonMsg['moveTask']
-    moveTask['status'] = true
-    moveTask['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'moveTask',
-      'hash' => jsonMsg['hash'],
-      'moveTask' => moveTask,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_addTaskTitle(client, jsonMsg)
-    taskAddTitle = jsonMsg['taskAddTitle']
-    taskAddTitle['status'] = true
-    taskAddTitle['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'taskAddTitle',
-      'hash' => jsonMsg['hash'],
-      'taskAddTitle' => taskAddTitle,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_remoteTaskTitle(client, jsonMsg)
-    taskRemoveTitle = jsonMsg['taskRemoveTitle']
-    taskRemoveTitle['status'] = true
-    taskRemoveTitle['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'taskRemoveTitle',
-      'hash' => jsonMsg['hash'],
-      'taskRemoveTitle' => taskRemoveTitle,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_addTaskText(client, jsonMsg)
-    taskAddText = jsonMsg['taskAddText']
-    taskAddText['status'] = true
-    taskAddText['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'taskAddText',
-      'hash' => jsonMsg['hash'],
-      'taskAddText' => taskAddText,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_deleteTask(client, jsonMsg)
-    deleteTask = jsonMsg['deleteTask']
-    deleteTask['status'] = true
-    deleteTask['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'deleteTask',
-      'hash' => jsonMsg['hash'],
-      'deleteTask' => deleteTask,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_changeTaskBG(client, jsonMsg)
-    changeTaskBG = jsonMsg['changeTaskBG']
-    changeTaskBG['status'] = true
-    changeTaskBG['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'changeTaskBG',
-      'hash' => jsonMsg['hash'],
-      'changeTaskBG' => changeTaskBG,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_addTaskNote(client, jsonMsg)
-    addTaskNote = jsonMsg['addTaskNote']
-    addTaskNote['status'] = true
-    addTaskNote['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'addTaskNote',
-      'hash' => jsonMsg['hash'],
-      'addTaskNote' => addTaskNote,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_updateTaskNote(client, jsonMsg)
-    taskNoteUpdate = jsonMsg['taskNoteUpdate']
-    taskNoteUpdate['status'] = true
-    taskNoteUpdate['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'taskNoteUpdate',
-      'hash' => jsonMsg['hash'],
-      'taskNoteUpdate' => taskNoteUpdate,
-    }
-    clientString = clientReply.to_json
-    sendToClient(client, clientString)
-  end
-
-  def procMsg_deleteTaskNote(client, jsonMsg)
-    deleteTaskNote = jsonMsg['deleteTaskNote']
-    deleteTaskNote['status'] = true
-    deleteTaskNote['errorReasons'] = false
-    clientReply = {
-      'commandSet' => 'taskBoard',
-      'commandReply' => true,
-      'taskCommand' => 'deleteTaskNote',
-      'hash' => jsonMsg['hash'],
-      'deleteTaskNote' => deleteTaskNote,
+      curCommand => replyObject,
     }
     clientString = clientReply.to_json
     sendToClient(client, clientString)
