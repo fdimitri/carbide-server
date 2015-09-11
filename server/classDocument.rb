@@ -180,7 +180,7 @@ class Document < DocumentBase
     }
     begin
       puts "procMsg_getContents(): Creating client reply.."
-      @clientReply = {
+      clientReply = {
         'commandSet' => 'document',
         'command' => 'documentSetContents',
         'targetDocument' => @name,
@@ -200,15 +200,15 @@ class Document < DocumentBase
     end
 
     puts "procMsg_getContents(): Sending client reply.."
-    @clientString = @clientReply.to_json
-    @project.sendToClient(client, @clientString)
+    clientString = clientReply.to_json
+    @project.sendToClient(client, clientString)
     puts "getContents(): Called #{jsonMsg}"
     puts "Returning:"
-    puts @clientReply
+    puts clientReply
   end
 
   def procMsg_getInfo(client, jsonMsg)
-    @clientReply = {
+    clientReply = {
       'replyType' => 'reply_getInfo',
       'documentInfo' => {
         'documentRevision' => @revision,
@@ -216,15 +216,15 @@ class Document < DocumentBase
         'docHash' => getHash(@revision),
       }
     }
-    @clientString = @clientReply.to_json
-    @project.sendToClient(client, @clientString)
+    clientString = clientReply.to_json
+    @project.sendToClient(client, clientString)
     puts "getInfo(): Called #{jsonMsg}"
     puts "Returning:"
-    puts @clientReply
+    puts clientReply
   end
 
   def sendMsg_cInsertDataSingleLine(client, document, line, data, char, length, ldata)
-    @clientReply = {
+    clientReply = {
       'commandSet' => 'document',
       'command' => 'insertDataSingleLine',
       'targetDocument' => document,
@@ -239,13 +239,13 @@ class Document < DocumentBase
       },
       #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
     }
-    @clientString = @clientReply.to_json
-    @clientReply['insertDataSingleLine']['hash'] = getMD5Hash(@clientString)
-    @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
+    clientString = clientReply.to_json
+    clientReply['insertDataSingleLine']['hash'] = getMD5Hash(clientString)
+    @project.sendToClientsListeningExceptWS(client.websocket, document, clientString)
   end
 
   def sendMsg_cDeleteDataSingleLine(client, document, line, data, char, length, ldata)
-    @clientReply = {
+    clientReply = {
       'commandSet' => 'document',
       'command' => 'deleteDataSingleLine',
       'targetDocument' => document,
@@ -262,13 +262,13 @@ class Document < DocumentBase
       },
       #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
     }
-    @clientString = @clientReply.to_json
-    @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
+    clientString = clientReply.to_json
+    @project.sendToClientsListeningExceptWS(client.websocket, document, clientString)
 
   end
 
   def sendMsg_cInsertDataMultiLine(client, document, startLine, startChar, length, data)
-    @clientReply = {
+    clientReply = {
       'commandSet' => 'document',
       'command' => 'insertDataMultiLine',
       'targetDocument' => name,
@@ -284,8 +284,8 @@ class Document < DocumentBase
       },
       #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
     }
-    @clientString = @clientReply.to_json
-    @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
+    clientString = clientReply.to_json
+    @project.sendToClientsListeningExceptWS(client.websocket, document, clientString)
   end
 
   def procMsg_insertDataMultiLine(client, jsonMsg)
@@ -566,14 +566,4 @@ class Document < DocumentBase
     end
 
   end
-
-  def procMsg_insertLine(client, jsonMsg)
-  end
-
-  def procMsg_deleteLine(client, jsonMsg)
-  end
-
-  def procMsg_deleteMultiLine(client, jsonMsg)
-  end
-
 end

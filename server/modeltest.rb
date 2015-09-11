@@ -14,7 +14,9 @@
 
 require 'rails/all'
 require 'bundler'
+require 'bundler/setup'
 Bundler.require(*Rails.groups)
+require 'devise/orm/active_record'
 Dir["./class*rb"].each { |file|
   puts "Require: " + file
   require file
@@ -65,6 +67,7 @@ class ProjectServer
   attr_accessor	:documents
   attr_accessor	:chats
   attr_accessor	:FileTree
+  attr_accessor :taskBoards
 
   def readTree()
     fsb = FileSystemBase.new(@baseDirectory, @FileTree)
@@ -77,6 +80,7 @@ class ProjectServer
     @clients = { }
     @documents = { }
     @terminals = { }
+    @taskBoards = { }
     @projectName = projectName
     @FileTree = FileTreeX.new
     @FileTree.setOptions(projectName, self)
@@ -129,6 +133,16 @@ class ProjectServer
           chat = addChat(jsonString['chatTarget'])
           chat.procMsg(getClient(ws), jsonString)
         end
+      elsif (jsonString['commandSet'] == 'taskBoard')
+        puts "This message corresponds to a chat for #{jsonString['taskTarget']}"
+        if (taskBoard = getTaskBoard(jsonString['taskTarget']))
+          taskBoard.procMsg(getClient(ws), jsonString)
+        else
+          puts "We should create a new chat since it doesn't exist"
+          taskBoard = addTaskBoard(jsonString['taskTarget'])
+          taskBoard.procMsg(getClient(ws), jsonString)
+        end
+
       elsif (jsonString['commandSet'] == 'FileTree')
         STDERR.puts "Received FileTree command"
         STDERR.flush
@@ -161,8 +175,6 @@ class ProjectServer
     end
   end
 
-
-
   def getTerminal(termName)
     puts "getTerminal called with #{termName}"
     if (@terminals[termName])
@@ -194,7 +206,6 @@ class ProjectServer
       'key' => createTerm['key']
     }
   end
-
 
   def procMsg_openTerminal(ws,msg)
     localMsg = msg['openTerminal']
@@ -329,8 +340,6 @@ class ProjectServer
     return true
   end
 
-
-
   def addDocument(documentName, dbEntry = nil)
     document = Document.new(self, documentName, @baseDirectory, dbEntry);
     @documents[documentName] = document;
@@ -368,7 +377,6 @@ class ProjectServer
     return (getTerminal(termName))
   end
 
-
   def addChat(chatName)
     chat = ChatChannel.new(self, chatName)
     @chats[chatName] = chat
@@ -391,7 +399,6 @@ class ProjectServer
     return getChat(chatName)
   end
 
-
   def getChat(chatName)
     if (@chats[chatName])
       return @chats[chatName];
@@ -400,6 +407,35 @@ class ProjectServer
     return FALSE
   end
 
+  def addTaskBoard(boardName)
+    taskBoard = TaskBoard.new(self, boardName)
+    @taskBoards[boardName] = taskBoard
+    myJSON = {
+      'commandSet' => 'taskBoard',
+      'command' => 'addTaskBoard',
+      'addTaskBoard' => {
+        'node' => {
+          'id' => boardName,
+          'parent' => 'taskroot',
+          'text' => boardName,
+          'type' => 'chat',
+          'li_attr' => {
+            "class" => 'jsTreeChat',
+          }
+        }
+      }
+    }
+    sendAll(myJSON.to_json)
+    return getTaskBoard(taskName)
+  end
+
+  def getTaskBoard(taskName)
+    if (@taskBoards[taskName])
+      return @taskBoards[taskName];
+    end
+    puts "Invalid taskBoard name: #{taskName}"
+    return FALSE
+  end
 
   def getClient(ws)
     if (@clients[ws])
@@ -492,8 +528,6 @@ class ProjectServer
     return rName
   end
 end
-
-
 
 @myProject = nil
 @webServer = nil
