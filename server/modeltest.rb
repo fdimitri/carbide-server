@@ -68,7 +68,6 @@ class ProjectServer
   attr_accessor	:chats
   attr_accessor	:FileTree
   attr_accessor :taskBoards
-
   def readTree()
     fsb = FileSystemBase.new(@baseDirectory, @FileTree)
     testlist = fsb.buildTree()
@@ -90,7 +89,7 @@ class ProjectServer
       #Lots of bash consoles and chats by default to stress test and
       # to check GUI functionality
       addChat('StdDev' + n.to_s)
-      addTerm('Default_Terminal' + n.to_s)
+      addTerminal('Default_Terminal' + n.to_s)
     end
   end
 
@@ -133,16 +132,6 @@ class ProjectServer
           chat = addChat(jsonString['chatTarget'])
           chat.procMsg(getClient(ws), jsonString)
         end
-      elsif (jsonString['commandSet'] == 'taskBoard')
-        puts "This message corresponds to a chat for #{jsonString['taskTarget']}"
-        if (taskBoard = getTaskBoard(jsonString['taskTarget']))
-          taskBoard.procMsg(getClient(ws), jsonString)
-        else
-          puts "We should create a new chat since it doesn't exist"
-          taskBoard = addTaskBoard(jsonString['taskTarget'])
-          taskBoard.procMsg(getClient(ws), jsonString)
-        end
-
       elsif (jsonString['commandSet'] == 'FileTree')
         STDERR.puts "Received FileTree command"
         STDERR.flush
@@ -175,6 +164,8 @@ class ProjectServer
     end
   end
 
+
+
   def getTerminal(termName)
     puts "getTerminal called with #{termName}"
     if (@terminals[termName])
@@ -183,43 +174,119 @@ class ProjectServer
     return FALSE
   end
 
-  def procMsg_createChat(ws,msg)
-    createChat = msg['createChat']
-    if (!getChat(createChat['roomName']))
-      addChat(createChat['roomName'])
-    end
-    client = @clients[ws]
-    clientReply = {
-      'status' => 'true',
-      'key' => createChat['key']
-    }
+  def procMsg_authenticateUser(ws, msg)
+
   end
 
-  def procMsg_createTerm(ws,msg)
-    createTerm = msg['createTerm']
-    if (!getTerminal(createTerm['termName']))
-      addTerm(createTerm['termName'])
+  def procMsg_createChatRoom(ws, msg)
+    if (!msg.has_key?('createChatRoom'))
+      puts "Malformed input to procMsg_createChatRoom:"
+      puts YAML.dump(msg)
+      return(false)
     end
-    client = @clients[ws]
-    clientReply = {
+
+    createChat = msg['createChatRoom']
+
+    if (!createChat.has_key?('chatRoomName'))
+      puts "Malformed input to procMsg_createChatRoom:"
+      puts YAML.dump(msg)
+      return(false)
+    end
+
+    chatName = createChat['chatRoomName']
+    if (!getChat(chatName))
+      addChat(chatName)
+    end
+
+    replyObject = {
       'status' => 'true',
-      'key' => createTerm['key']
+      'hash' => msg['hash'],
+      'createChatRoom' => createChat,
     }
+
+    replyString = replyObject.to_json
+
+    sendToClient(@clients[ws], replyString)
+    return(true)
   end
+
+  def procMsg_createTerminal(ws,msg)
+    if (!msg.has_key?('createTerminal'))
+      puts "Malformed input to procMsg_createTerminal:"
+      puts YAML.dump(msg)
+      return(false)
+    end
+
+    createTerminal = msg['createTerminal']
+
+    if (!createTerminal.has_key?('terminalName'))
+      puts "Malformed input to procMsg_createTerminal:"
+      puts YAML.dump(msg)
+      return(false)
+    end
+
+    termName = createTerminal['terminalName']
+    if (!getTerminal(termName))
+      addTerminal(termName)
+    end
+
+    replyObject = {
+      'status' => 'true',
+      'hash' => msg['hash'],
+      'createTerminal' => createTerminal,
+    }
+
+    replyString = replyObject.to_json
+
+    sendToClient(@clients[ws], replyString)
+    return(true)
+  end
+
+  def procMsg_createTaskBoard(ws,msg)
+    if (!msg.has_key?('createTaskBoard'))
+      puts "Malformed input to procMsg_createTaskBoard:"
+      puts YAML.dump(msg)
+      return(false)
+    end
+
+    createTaskBoard = msg['createTaskBoard']
+
+    if (!createTaskBoard.has_key?('taskBoardName'))
+      puts "Malformed input to procMsg_createTaskBoard:"
+      puts YAML.dump(msg)
+      return(false)
+    end
+
+    boardName = createTaskBoard['taskBoardName']
+    if (!getTaskBoard(boardName))
+      addTaskBoard(boardName)
+    end
+
+    replyObject = {
+      'status' => 'true',
+      'hash' => msg['hash'],
+      'createTaskBoard' => createTaskBoard,
+    }
+
+    replyString = replyObject.to_json
+
+    sendToClient(@clients[ws], replyString)
+    return(true)
+  end
+
 
   def procMsg_openTerminal(ws,msg)
-    localMsg = msg['openTerminal']
-    termName = localMsg['termName']
+    openTerminal = msg['openTerminal']
+    termName = openTerminal['termName']
     puts "procMsg Open Terminal #{termName}"
     if (!getTerminal(termName))
       puts "Creating terminal"
-      addTerm(termName)
+      addTerminal(termName)
     end
     client = @clients[ws]
-    puts "Set client = @clients(ws)"
-    client.addTerm(getTerminal(termName))
-    puts "Adding client to terminal"
+    client.addTerminal(getTerminal(termName))
     @terminals[termName].addClient(client, ws)
+
   end
 
   def procMsg_closeTerminal(ws,msg)
@@ -255,7 +322,7 @@ class ProjectServer
     }
     clientString = clientReply.to_json
 
-    sendToClient(ws, clientString)
+    sendToClient(@clients[ws], clientString)
   end
 
   def procMsg_getChatListJSON(ws = false, jsonMsg = false)
@@ -293,7 +360,7 @@ class ProjectServer
         }
       }
       clientString = clientReply.to_json
-      sendToClient(clients[ws], clientString)
+      sendToClient(@clients[ws], clientString)
       return true
     end
     YAML.dump(jsonString);
@@ -333,12 +400,14 @@ class ProjectServer
         }
       }
       clientString = clientReply.to_json
-      sendToClient(clients[ws], clientString)
+      sendToClient(@clients[ws], clientString)
       return true
     end
     YAML.dump(jsonString);
     return true
   end
+
+
 
   def addDocument(documentName, dbEntry = nil)
     document = Document.new(self, documentName, @baseDirectory, dbEntry);
@@ -353,8 +422,7 @@ class ProjectServer
     #puts "Invalid document name: #{documentName}"
     return FALSE
   end
-
-  def addTerm(termName)
+  def addTerminal(termName)
     puts "addTerm called with #{termName}"
     term = Terminal.new(self, termName);
     @terminals[termName] = term;
@@ -376,6 +444,7 @@ class ProjectServer
     sendAll(myJSON.to_json)
     return (getTerminal(termName))
   end
+
 
   def addChat(chatName)
     chat = ChatChannel.new(self, chatName)
@@ -399,6 +468,7 @@ class ProjectServer
     return getChat(chatName)
   end
 
+
   def getChat(chatName)
     if (@chats[chatName])
       return @chats[chatName];
@@ -408,15 +478,15 @@ class ProjectServer
   end
 
   def addTaskBoard(boardName)
-    taskBoard = TaskBoard.new(self, boardName)
-    @taskBoards[boardName] = taskBoard
+    board = TaskBoard.new(self, boardName)
+    @taskBoards[boardName] = board
     myJSON = {
       'commandSet' => 'taskBoard',
       'command' => 'addTaskBoard',
       'addTaskBoard' => {
         'node' => {
           'id' => boardName,
-          'parent' => 'taskroot',
+          'parent' => 'taskboardroot',
           'text' => boardName,
           'type' => 'chat',
           'li_attr' => {
@@ -426,16 +496,19 @@ class ProjectServer
       }
     }
     sendAll(myJSON.to_json)
-    return getTaskBoard(taskName)
+    return (boardName)
   end
 
-  def getTaskBoard(taskName)
-    if (@taskBoards[taskName])
-      return @taskBoards[taskName];
+
+
+  def getTaskBoard(boardName)
+    puts "getTaskBoard called with #{boardName}"
+    if (@taskBoards[boardName])
+      return @taskBoards[boardName];
     end
-    puts "Invalid taskBoard name: #{taskName}"
     return FALSE
   end
+
 
   def getClient(ws)
     if (@clients[ws])
@@ -504,7 +577,11 @@ class ProjectServer
   end
 
   def sendToClient(client, msg)
-    client.websocket.send msg
+    if (client.websocket)
+      client.websocket.send msg
+    else
+      client.send msg
+    end
   end
 
   def chatNames
@@ -528,6 +605,8 @@ class ProjectServer
     return rName
   end
 end
+
+
 
 @myProject = nil
 @webServer = nil
