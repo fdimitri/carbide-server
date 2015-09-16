@@ -142,6 +142,13 @@ class ProjectServer
         else
           puts "Asked to process a message for terminal that doesnt exist"
         end
+      elsif (jsonString['commandSet'] == 'task')
+        if (taskTarget = getTaskBoard(jsonString['taskTarget']))
+          taskTarget.procMsg(getClient(ws), jsonString)
+        else
+          puts "Asked to process a message for a non-existent taskBoard or taskTarget wasn't set!"
+          puts YAML.dump(jsonString)
+        end
       elsif (!jsonString['commandSet'] || jsonString['commandSet'] == 'base')
         puts "This message is general context"
         if (self.respond_to?("procMsg_#{jsonString['command']}"))
@@ -325,6 +332,49 @@ class ProjectServer
     sendToClient(@clients[ws], clientString)
   end
 
+  def procMsg_getTaskBoardListJSON(ws = false, jsonMsg = false)
+    counter = 0;
+    jsonString = [
+      'id' => 'taskboardroot',
+      'parent' => '#',
+      'text' => 'Task Boards',
+      'type' => 'root',
+      'li_attr' => {
+        'class' => 'jsRoot',
+      },
+    ]
+    @taskBoards.each { |key, c|
+      puts "taskBoards.each: taskName is " + c.taskName
+      counter = counter + 1
+      myJSON = {
+        'id' => c.taskName,
+        'parent' => 'taskboardroot',
+        'text' => c.taskName,
+        'type' => 'chat',
+        'li_attr' => {
+          "class" => 'jsTreeTaskBoard',
+        },
+      }
+      jsonString << myJSON
+    }
+    if (ws != false)
+      jsonString = jsonString.to_json
+      clientReply = {
+        'commandSet' => 'taskBoard',
+        'command' => 'setTaskBoardTreeJSON',
+        'setTaskBoardTreeJSON' => {
+          'taskBoardTree' => jsonString,
+        }
+      }
+      clientString = clientReply.to_json
+      sendToClient(@clients[ws], clientString)
+      return true
+    end
+    YAML.dump(jsonString);
+    return true
+  end
+
+
   def procMsg_getChatListJSON(ws = false, jsonMsg = false)
     counter = 0;
     jsonString = [
@@ -422,6 +472,7 @@ class ProjectServer
     #puts "Invalid document name: #{documentName}"
     return FALSE
   end
+
   def addTerminal(termName)
     puts "addTerm called with #{termName}"
     term = Terminal.new(self, termName);
@@ -490,7 +541,7 @@ class ProjectServer
           'text' => boardName,
           'type' => 'chat',
           'li_attr' => {
-            "class" => 'jsTreeChat',
+            "class" => 'jsTreeTaskBoard',
           }
         }
       }
