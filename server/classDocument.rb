@@ -76,7 +76,7 @@ class DocumentBase
 
   def writeToFS(thread=false)
     #disable this for now
-    return false
+    #return false
     newTime = File.mtime(@baseDirectory + @name)
     if (newTime != @fsTimeStamp)
       puts "WARNING: Attempting to overwrite file " + @baseDirectory + @name

@@ -43,7 +43,7 @@ Dir["./client_models/*rb"].sort.each { |file|
   require file
 }
 
-ActiveRecord::Base.logger = Logger.new('ActiveRecord-debug.log')
+#ActiveRecord::Base.logger = Logger.new('ActiveRecord-debug.log')
 
 configuration = YAML::load(IO.read('config/database.yml'))
 #clientconfig = YAML::load(IO.read('../../carbide-client/config/database.yml'))
@@ -68,22 +68,29 @@ class ProjectServer
   attr_accessor	:chats
   attr_accessor	:FileTree
   attr_accessor :taskBoards
+  attr_accessor :webServer
+
   def readTree()
     fsb = FileSystemBase.new(@baseDirectory, @FileTree)
     testlist = fsb.buildTree()
     fsb.createFileTree(testlist)
   end
 
-  def initialize(projectName)
+  def registerWebServer(webServer)
+    @webServer = webServer
+  end
+
+  def initialize(projectName, baseDirectory)
     @chats = { }
     @clients = { }
     @documents = { }
     @terminals = { }
     @taskBoards = { }
+    @webServer = nil
     @projectName = projectName
     @FileTree = FileTreeX.new
     @FileTree.setOptions(projectName, self)
-    @baseDirectory = "/var/www/html/carbide-server";
+    @baseDirectory = baseDirectory;
     readTree()
     for n in 0..0
       #Lots of bash consoles and chats by default to stress test and
@@ -212,7 +219,6 @@ class ProjectServer
     }
 
     replyString = replyObject.to_json
-
     sendToClient(@clients[ws], replyString)
     return(true)
   end
@@ -293,7 +299,6 @@ class ProjectServer
     client = @clients[ws]
     client.addTerminal(getTerminal(termName))
     @terminals[termName].addClient(client, ws)
-
   end
 
   def procMsg_closeTerminal(ws,msg)
@@ -332,6 +337,65 @@ class ProjectServer
     sendToClient(@clients[ws], clientString)
   end
 
+  def procMsg_downloadDocument(ws, msg)
+    #Temporary
+    hash = 0
+    if (msg.hash_key?('hash'))
+      hash = msg['hash']
+    end
+
+    if (!msg.has_key?('downloadDocument'))
+      clientReply = {
+        'hash' => hash,
+        'status' => false,
+        'errorReasons' => ['Missing key from base JSON message: downloadDocument'],
+        'commandSet' => 'reply',
+        'commandType' => 'downloadDocument',
+        'downloadDocument' => {
+          'httpLink' => nil,
+        },
+      }
+      clientString = clientReply.to_json
+      sendToClient(@clients[ws], clientString)
+      return false
+    end
+
+    downloadDocument = msg['downloadDocument']
+
+    if (!downloadDocument.has_key?('srcPath'))
+      clientReply = {
+        'hash' => hash,
+        'status' => false,
+        'errorReasons' => ['Missing key from downloadDocument object after base JSON message: srcPath'],
+        'commandSet' => 'reply',
+        'commandType' => 'downloadDocument',
+        'downloadDocument' => {
+          'httpLink' => nil,
+        },
+      }
+      clientString = clientReply.to_json
+      sendToClient(@clients[ws], clientString)
+      return false
+    end
+
+    srcPath = msg['downloadDocument']['srcPath']
+    httpLink = @webServer.getBaseURL + '/download' + "?srcPath=#{srcPath}"
+
+    clientReply = {
+      'hash' => msg['hash'],
+      'status' => true,
+      'errorReasons' => false,
+      'commandSet' => 'reply',
+      'commandType' => 'downloadDocument',
+      'downloadDocument' => {
+        'httpLink' => httpLink,
+      },
+    }
+    clientString = clientReply.to_json
+    sendToClient(@clients[ws], clientString)
+    return true
+  end
+
   def procMsg_getTaskBoardListJSON(ws = false, jsonMsg = false)
     counter = 0;
     jsonString = [
@@ -350,7 +414,7 @@ class ProjectServer
         'id' => c.taskName,
         'parent' => 'taskboardroot',
         'text' => c.taskName,
-        'type' => 'chat',
+        'type' => 'taskBoard',
         'li_attr' => {
           "class" => 'jsTreeTaskBoard',
         },
@@ -536,10 +600,10 @@ class ProjectServer
       'command' => 'addTaskBoard',
       'addTaskBoard' => {
         'node' => {
-          'id' => boardName,
+          'id' => boardName + "_TB",
           'parent' => 'taskboardroot',
           'text' => boardName,
-          'type' => 'chat',
+          'type' => 'taskBoard',
           'li_attr' => {
             "class" => 'jsTreeTaskBoard',
           }
@@ -661,9 +725,10 @@ end
 
 @myProject = nil
 @webServer = nil
-@myProject = ProjectServer.new('CARBIDE-SERVER')
-puts "Using directory " + File.expand_path(File.dirname(__FILE__) + "/../")
-@webServer = WebServer.new(6400, File.expand_path(File.dirname(__FILE__) + "/../"))
+baseDirectory = File.expand_path(File.dirname(__FILE__) + "/../")
+@myProject = ProjectServer.new('CARBIDE-SERVER', baseDirectory)
+puts "Using directory " + baseDirectory
+@webServer = WebServer.new('0.0.0.0', '172.17.0.42', 6400, baseDirectory)
 Thread.abort_on_exception = false
 
 myProjectThread = Thread.new {
@@ -679,6 +744,7 @@ webServerThread = Thread.new {
 }
 puts "All done! Now we gogogo!"
 
+@myProject.registerWebServer(@webServer)
 
 
 puts webServerThread.status

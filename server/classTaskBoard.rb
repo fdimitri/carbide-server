@@ -105,11 +105,9 @@ class TaskBoard
     if (self.respond_to?("procMsg_#{jsonMsg['taskCommand']}"))
       puts "Found a function handler for  #{jsonMsg['taskCommand']}"
       self.send("procMsg_#{jsonMsg['taskCommand']}", client, jsonMsg)
-    elsif
-      #puts "There is no function to handle the incoming command #{jsonMsg['taskCommand']} .. using default handler until all functions are written"
-      puts YAML.dump(client)
-      puts YAML.dump(jsonMsg)
-      procMsgDefaultHandler(client, jsonMsg)
+    else
+      puts "There is no function to handle the incoming command #{jsonMsg['taskCommand']} .. using default handler until all functions are written"
+      rval = procMsgDefaultHandler(client, jsonMsg)
       puts "procMsgDefaultHandler returned:"
       puts YAML.dump(rval)
     end
