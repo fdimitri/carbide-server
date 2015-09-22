@@ -10,7 +10,11 @@
 #require 'mysql2'
 #require 'openssl'
 
-
+VM_OPTIONAL =   0x00001
+VM_REQUIRED =   0x00002
+VM_NOTALLOW =   0x00004
+VM_STRICT   =   0x00008
+VM_REGEX_VALIDPATH = '/^\/[\w\d\/-_\s].*/'
 
 require 'rails/all'
 require 'bundler'
@@ -337,25 +341,140 @@ class ProjectServer
     sendToClient(@clients[ws], clientString)
   end
 
+  def validateMsg(validation, msg)
+    begin
+      puts "Enter validateMsg"
+      puts YAML.dump(validation)
+      puts validation.inspect
+      errorReasons = []
+      validation.each {|key, val|
+        puts "Key: #{key}, VAL:"
+        puts YAML.dump(val)
+        if (val['reqBits'] & VM_REQUIRED)
+          puts "VM_REQUIRED for #{key}"
+          if (!msg.has_key?(key))
+            puts "Msg has no key #{key}"
+            errorReasons << 'Missing required key: {#key}'
+          elsif (val.has_key?('classNames') && !(msg[key].class.name == val['classNames']))
+            puts "Msg has invalid clasName!"
+            className = msg[key].class.name
+            errorReasons << "Invalid class type: #{className}, should be #{val['classNames']}"
+          else
+            puts "Msg has key and proper className"
+            # Everything is OK, check subObjects if they exist!
+            begin
+            puts "Has_key? classNames: " + val.has_key?('classNames').to_s
+            puts "Val['classNames']: " + val['classNames'].to_s
+            puts "Has_key? subOjects: " + val.has_key?('subObjects').to_s
+            puts (val.has_key?('classNames') && val['classNames'] == "Hash" && val.has_key?('subObjects')).to_s
+
+            if (val.has_key?('classNames') && val['classNames'] == "Hash" && val.has_key?('subObjects'))
+              puts "classNames == Hash && val.has_key subOjects, call validateMsg() recursively"
+              subValidation = validateMsg(val['subObjects'], msg[key])
+              puts "validateMsg() recursive call complete"
+              puts YAML.dump(subValidation)
+              if (!subValidation['status'] && subValidation['errorReasons'].count)
+                subValidation['errorReasons'].each{|reason|
+                  errorReasons << reason
+                }
+              end
+            end
+          rescue Exception => e
+            puts "There was an error!"
+            puts YAML.dump(e)
+            puts "Error: " + e.message
+            puts "Backtrace: " + e.backtrace
+            errorReasons << ['EXCEPTION! #{e.message}']
+            errorReasons.count ? myStatus = true : myStatus = false
+            return({'status' => myStatus, 'errorReasons' => errorReasons})
+          end
+          end
+        end
+      }
+
+    rescue Exception => e
+      puts "There was an error!"
+      puts YAML.dump(e)
+      puts "Error: " + e.message
+      puts "Backtrace: " + e.backtrace
+      errorReasons << ['EXCEPTION! #{e.message}']
+      errorReasons.count ? myStatus = true : myStatus = false
+      return({'status' => myStatus, 'errorReasons' => errorReasons})
+    end
+    errorReasons.count ? myStatus = true : myStatus = false
+    return({'status' => myStatus, 'errorReasons' => errorReasons})
+  end
+
   def procMsg_downloadDocument(ws, msg)
     #Temporary
+    downloadDocumentValidation = {
+      'hash' => {
+        'classNames' => 'String',
+        'reqBits' => VM_OPTIONAL | VM_STRICT,
+      },
+      'downloadDocument' => {
+        'classNames' => 'Hash',
+        'reqBits' => VM_REQUIRED | VM_STRICT,
+        'subObjects' => {
+          'srcPath' => {
+            'classNames' => 'String',
+            'matchExp' => VM_REGEX_VALIDPATH,
+            'reqBits' => VM_REQUIRED | VM_STRICT,
+          },
+        },
+      },
+    }
+
+    puts "Enter procMsg_downloadDocument"
+    puts YAML.dump(msg)
     hash = 0
-    if (msg.hash_key?('hash'))
+    if (msg.has_key?('hash'))
+      puts "Msg has hash!"
       hash = msg['hash']
     end
-
-    if (!msg.has_key?('downloadDocument'))
+    puts "Hash is: #{hash}"
+    puts "Validating message.."
+    puts "Calling validateMsg"
+    vMsg = validateMsg(downloadDocumentValidation, msg);
+    puts "Done."
+    puts vMsg
+    if (!vMsg['status'])
       clientReply = {
         'hash' => hash,
-        'status' => false,
-        'errorReasons' => ['Missing key from base JSON message: downloadDocument'],
+        'status' => vMsg['status'],
+        'errorReasons' => vMsg['errorReasons'],
         'commandSet' => 'reply',
         'commandType' => 'downloadDocument',
         'downloadDocument' => {
           'httpLink' => nil,
         },
       }
+      puts YAML.dump(clientReply)
+      puts "Converting to json.."
       clientString = clientReply.to_json
+      puts clientString
+      puts "Sending to client!"
+      sendToClient(@clients[ws], clientString)
+      return false
+    end
+    if (!msg.has_key?('downloadDocument') || !(msg['downloadDocument'].class.name == 'Hash'))
+      ddClass = msg['downloadDocument'].class.name
+      puts "Msg has no key: downloadDocument, return errors!"
+      clientReply = {
+        'hash' => hash,
+        'status' => false,
+        'errorReasons' => ['Missing key from base JSON message: downloadDocument', 'Possible bad downloadDocument parsing: ' + ddClass],
+        'commandSet' => 'reply',
+        'commandType' => 'downloadDocument',
+        'downloadDocument' => {
+          'httpLink' => nil,
+        },
+      }
+      puts YAML.dump(clientReply)
+      puts "Converting to json.."
+      clientString = clientReply.to_json
+      puts clientString
+      puts "Sending to client!"
       sendToClient(@clients[ws], clientString)
       return false
     end
@@ -363,6 +482,7 @@ class ProjectServer
     downloadDocument = msg['downloadDocument']
 
     if (!downloadDocument.has_key?('srcPath'))
+      puts "downloadDocument has no key 'srcPath', not good! Return errors!"
       clientReply = {
         'hash' => hash,
         'status' => false,
@@ -373,16 +493,21 @@ class ProjectServer
           'httpLink' => nil,
         },
       }
+      puts YAML.dump(clientReply)
+      puts "Converting to json.."
       clientString = clientReply.to_json
+      puts clientString
+      puts "Sending to client!"
       sendToClient(@clients[ws], clientString)
       return false
     end
 
-    srcPath = msg['downloadDocument']['srcPath']
+    srcPath = downloadDocument['srcPath']
+    puts "srcPath is: #{srcPath}"
     httpLink = @webServer.getBaseURL + '/download' + "?srcPath=#{srcPath}"
 
     clientReply = {
-      'hash' => msg['hash'],
+      'hash' => hash,
       'status' => true,
       'errorReasons' => false,
       'commandSet' => 'reply',
