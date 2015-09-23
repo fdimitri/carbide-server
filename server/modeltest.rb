@@ -228,21 +228,33 @@ class ProjectServer
   end
 
   def procMsg_createTerminal(ws,msg)
-    if (!msg.has_key?('createTerminal'))
-      puts "Malformed input to procMsg_createTerminal:"
-      puts YAML.dump(msg)
-      return(false)
+    hash = 0
+    createTerminalValidation = {
+      'hash' => {
+        'classNames' => 'String',
+        'reqBits' => VM_OPTIONAL | VM_STRICT,
+      }
+      'createTerminalBoard' => {
+        'classNames' => 'Hash',
+        'reqBits' => VM_REQUIRED | VM_STRICT,
+        'subObjects' => {
+          'terminalName' => {
+            'classNames' => 'String',
+            'reqBits' => VM_REQUIRED | VM_STRICT,
+            'matchExp' => '/^[\w\d-_\s]+$/'
+          }
+        }
+      }
+    }
+    vMsg = validateMsg(createTaskBoardValidation, msg)
+    if (!vMsg['status'])
+      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+      return false
     end
 
     createTerminal = msg['createTerminal']
-
-    if (!createTerminal.has_key?('terminalName'))
-      puts "Malformed input to procMsg_createTerminal:"
-      puts YAML.dump(msg)
-      return(false)
-    end
-
     termName = createTerminal['terminalName']
+
     if (!getTerminal(termName))
       addTerminal(termName)
     end
@@ -252,29 +264,40 @@ class ProjectServer
       'hash' => msg['hash'],
       'createTerminal' => createTerminal,
     }
-
     replyString = replyObject.to_json
-
     sendToClient(@clients[ws], replyString)
+
     return(true)
   end
 
-  def procMsg_createTaskBoard(ws,msg)
-    if (!msg.has_key?('createTaskBoard'))
-      puts "Malformed input to procMsg_createTaskBoard:"
-      puts YAML.dump(msg)
-      return(false)
+  def procMsg_createTaskBoard(ws, msg)
+    hash = 0
+    createTaskBoardValidation = {
+      'hash' => {
+        'classNames' => 'String',
+        'reqBits' => VM_OPTIONAL | VM_STRICT,
+      }
+      'createTaskBoard' => {
+        'classNames' => 'Hash',
+        'reqBits' => VM_REQUIRED | VM_STRICT,
+        'subObjects' => {
+          'taskBoardName' => {
+            'classNames' => 'String',
+            'reqBits' => VM_REQUIRED | VM_STRICT,
+            'matchExp' => '/^[\w\d-_\s]+$/'
+          }
+        }
+      }
+    }
+    vMsg = validateMsg(createTaskBoardValidation, msg)
+    if (!vMsg['status'])
+      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+      return false
     end
 
     createTaskBoard = msg['createTaskBoard']
-
-    if (!createTaskBoard.has_key?('taskBoardName'))
-      puts "Malformed input to procMsg_createTaskBoard:"
-      puts YAML.dump(msg)
-      return(false)
-    end
-
     boardName = createTaskBoard['taskBoardName']
+
     if (!getTaskBoard(boardName))
       addTaskBoard(boardName)
     end
@@ -284,18 +307,41 @@ class ProjectServer
       'hash' => msg['hash'],
       'createTaskBoard' => createTaskBoard,
     }
-
     replyString = replyObject.to_json
-
     sendToClient(@clients[ws], replyString)
     return(true)
   end
 
 
   def procMsg_openTerminal(ws,msg)
+    hash = 0
+    openTerminalValidation = {
+      'hash' => {
+        'classNames' => 'String',
+        'reqBits' => VM_OPTIONAL | VM_STRICT,
+      }
+      'openTerminal' => {
+        'classNames' => 'Hash',
+        'reqBits' => VM_REQUIRED | VM_STRICT,
+        'subObjects' => {
+          'termName' => {
+            'classNames' => 'String',
+            'reqBits' => VM_REQUIRED | VM_STRICT,
+            'matchExp' => '/^[\w\d-_\s]+$/'
+          }
+        }
+      }
+    }
+    vMsg = validateMsg(openTerminalValidation, msg)
+    if (!vMsg['status'])
+      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+      return false
+    end
+
     openTerminal = msg['openTerminal']
     termName = openTerminal['termName']
     puts "procMsg Open Terminal #{termName}"
+
     if (!getTerminal(termName))
       puts "Creating terminal"
       addTerminal(termName)
@@ -303,6 +349,23 @@ class ProjectServer
     client = @clients[ws]
     client.addTerminal(getTerminal(termName))
     @terminals[termName].addClient(client, ws)
+  end
+
+  def generateError(client, hash, status, errorReasons, commandRequested)
+    clientReply = {
+      'hash' => hash,
+      'status' => status,
+      'errorReasons' => errorReasons,
+      'commandSet' => 'reply',
+      'commandType' => commandRequested,
+    }
+    puts YAML.dump(clientReply)
+    puts "Converting to json.."
+    clientString = clientReply.to_json
+    puts clientString
+    puts "Sending to client!"
+    sendToClient(@clients[ws], clientString)
+    return false
   end
 
   def procMsg_closeTerminal(ws,msg)
@@ -344,8 +407,6 @@ class ProjectServer
   def validateMsg(validation, msg)
     begin
       puts "Enter validateMsg"
-      puts YAML.dump(validation)
-      puts validation.inspect
       errorReasons = []
       validation.each {|key, val|
         puts "Key: #{key}, VAL:"
@@ -363,20 +424,18 @@ class ProjectServer
             puts "Msg has key and proper className"
             # Everything is OK, check subObjects if they exist!
             begin
-            puts "Has_key? classNames: " + val.has_key?('classNames').to_s
-            puts "Val['classNames']: " + val['classNames'].to_s
-            puts "Has_key? subOjects: " + val.has_key?('subObjects').to_s
-            puts (val.has_key?('classNames') && val['classNames'] == "Hash" && val.has_key?('subObjects')).to_s
-
             if (val.has_key?('classNames') && val['classNames'] == "Hash" && val.has_key?('subObjects'))
               puts "classNames == Hash && val.has_key subOjects, call validateMsg() recursively"
               subValidation = validateMsg(val['subObjects'], msg[key])
               puts "validateMsg() recursive call complete"
-              puts YAML.dump(subValidation)
-              if (!subValidation['status'] && subValidation['errorReasons'].count)
-                subValidation['errorReasons'].each{|reason|
-                  errorReasons << reason
-                }
+              if (!subValidation['status'])
+                if (subValidation['errorReasons'].count)
+                  subValidation['errorReasons'].each{|reason|
+                    errorReasons << reason
+                  }
+                else
+                  puts "There were no errorReasons but subValidation['status'] was false.."
+                end
               end
             end
           rescue Exception => e
@@ -391,7 +450,6 @@ class ProjectServer
           end
         end
       }
-
     rescue Exception => e
       puts "There was an error!"
       puts YAML.dump(e)
@@ -406,7 +464,8 @@ class ProjectServer
   end
 
   def procMsg_downloadDocument(ws, msg)
-    #Temporary
+    puts "Enter procMsg_downloadDocument"
+    puts "JSON: " + msg.to_json
     downloadDocumentValidation = {
       'hash' => {
         'classNames' => 'String',
@@ -425,85 +484,19 @@ class ProjectServer
       },
     }
 
-    puts "Enter procMsg_downloadDocument"
-    puts YAML.dump(msg)
     hash = 0
     if (msg.has_key?('hash'))
       puts "Msg has hash!"
       hash = msg['hash']
     end
-    puts "Hash is: #{hash}"
-    puts "Validating message.."
-    puts "Calling validateMsg"
     vMsg = validateMsg(downloadDocumentValidation, msg);
-    puts "Done."
-    puts vMsg
     if (!vMsg['status'])
-      clientReply = {
-        'hash' => hash,
-        'status' => vMsg['status'],
-        'errorReasons' => vMsg['errorReasons'],
-        'commandSet' => 'reply',
-        'commandType' => 'downloadDocument',
-        'downloadDocument' => {
-          'httpLink' => nil,
-        },
-      }
-      puts YAML.dump(clientReply)
-      puts "Converting to json.."
-      clientString = clientReply.to_json
-      puts clientString
-      puts "Sending to client!"
-      sendToClient(@clients[ws], clientString)
-      return false
-    end
-    if (!msg.has_key?('downloadDocument') || !(msg['downloadDocument'].class.name == 'Hash'))
-      ddClass = msg['downloadDocument'].class.name
-      puts "Msg has no key: downloadDocument, return errors!"
-      clientReply = {
-        'hash' => hash,
-        'status' => false,
-        'errorReasons' => ['Missing key from base JSON message: downloadDocument', 'Possible bad downloadDocument parsing: ' + ddClass],
-        'commandSet' => 'reply',
-        'commandType' => 'downloadDocument',
-        'downloadDocument' => {
-          'httpLink' => nil,
-        },
-      }
-      puts YAML.dump(clientReply)
-      puts "Converting to json.."
-      clientString = clientReply.to_json
-      puts clientString
-      puts "Sending to client!"
-      sendToClient(@clients[ws], clientString)
+      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
       return false
     end
 
     downloadDocument = msg['downloadDocument']
-
-    if (!downloadDocument.has_key?('srcPath'))
-      puts "downloadDocument has no key 'srcPath', not good! Return errors!"
-      clientReply = {
-        'hash' => hash,
-        'status' => false,
-        'errorReasons' => ['Missing key from downloadDocument object after base JSON message: srcPath'],
-        'commandSet' => 'reply',
-        'commandType' => 'downloadDocument',
-        'downloadDocument' => {
-          'httpLink' => nil,
-        },
-      }
-      puts YAML.dump(clientReply)
-      puts "Converting to json.."
-      clientString = clientReply.to_json
-      puts clientString
-      puts "Sending to client!"
-      sendToClient(@clients[ws], clientString)
-      return false
-    end
-
     srcPath = downloadDocument['srcPath']
-    puts "srcPath is: #{srcPath}"
     httpLink = @webServer.getBaseURL + '/download' + "?srcPath=#{srcPath}"
 
     clientReply = {
@@ -518,6 +511,7 @@ class ProjectServer
     }
     clientString = clientReply.to_json
     sendToClient(@clients[ws], clientString)
+    puts "Sent to client: " + clientString
     return true
   end
 
