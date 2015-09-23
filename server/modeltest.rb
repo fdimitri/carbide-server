@@ -197,21 +197,33 @@ class ProjectServer
   end
 
   def procMsg_createChatRoom(ws, msg)
-    if (!msg.has_key?('createChatRoom'))
-      puts "Malformed input to procMsg_createChatRoom:"
-      puts YAML.dump(msg)
-      return(false)
+    hash = 0
+    createChatRoomValidation = {
+      'hash' => {
+        'classNames' => 'String',
+        'reqBits' => VM_OPTIONAL | VM_STRICT,
+      }
+      'createChatRoom' => {
+        'classNames' => 'Hash',
+        'reqBits' => VM_REQUIRED | VM_STRICT,
+        'subObjects' => {
+          'chatRoomName' => {
+            'classNames' => 'String',
+            'reqBits' => VM_REQUIRED | VM_STRICT,
+            'matchExp' => '/^[\w\d-_\s]+$/'
+          }
+        }
+      }
+    }
+    vMsg = validateMsg(createChatRoomValidation, msg)
+    if (!vMsg['status'])
+      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+      return false
     end
 
     createChat = msg['createChatRoom']
-
-    if (!createChat.has_key?('chatRoomName'))
-      puts "Malformed input to procMsg_createChatRoom:"
-      puts YAML.dump(msg)
-      return(false)
-    end
-
     chatName = createChat['chatRoomName']
+
     if (!getChat(chatName))
       addChat(chatName)
     end
