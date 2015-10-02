@@ -1,15 +1,14 @@
-#require 'em-websocket'
-#require 'json'
-#require 'yaml'
-#require 'rubygems'
-#require 'active_record'
-#require 'logger'
-#require 'sqlite3'
-#require 'bcrypt'
-#require 'rails-erd'
-#require 'mysql2'
-#require 'openssl'
-
+require 'mysql2'
+require 'em-websocket'
+require 'json'
+require 'yaml'
+require 'rubygems'
+require 'active_record'
+require 'logger'
+require 'bcrypt'
+require 'rails-erd'
+require 'mysql2'
+require 'openssl'
 VM_OPTIONAL =   0x00001
 VM_REQUIRED =   0x00002
 VM_NOTALLOW =   0x00004
@@ -21,6 +20,10 @@ require 'bundler'
 require 'bundler/setup'
 Bundler.require(*Rails.groups)
 require 'devise/orm/active_record'
+
+puts Gem.loaded_specs.values.map {|x| "#{x.name} #{x.version}"}
+	
+
 Dir["./class*rb"].each { |file|
   puts "Require: " + file
   require file
@@ -202,7 +205,7 @@ class ProjectServer
       'hash' => {
         'classNames' => 'String',
         'reqBits' => VM_OPTIONAL | VM_STRICT,
-      }
+      },
       'createChatRoom' => {
         'classNames' => 'Hash',
         'reqBits' => VM_REQUIRED | VM_STRICT,
@@ -245,7 +248,7 @@ class ProjectServer
       'hash' => {
         'classNames' => 'String',
         'reqBits' => VM_OPTIONAL | VM_STRICT,
-      }
+      },
       'createTerminalBoard' => {
         'classNames' => 'Hash',
         'reqBits' => VM_REQUIRED | VM_STRICT,
@@ -288,7 +291,7 @@ class ProjectServer
       'hash' => {
         'classNames' => 'String',
         'reqBits' => VM_OPTIONAL | VM_STRICT,
-      }
+      },
       'createTaskBoard' => {
         'classNames' => 'Hash',
         'reqBits' => VM_REQUIRED | VM_STRICT,
@@ -331,7 +334,7 @@ class ProjectServer
       'hash' => {
         'classNames' => 'String',
         'reqBits' => VM_OPTIONAL | VM_STRICT,
-      }
+      },
       'openTerminal' => {
         'classNames' => 'Hash',
         'reqBits' => VM_REQUIRED | VM_STRICT,
@@ -856,10 +859,10 @@ end
 
 @myProject = nil
 @webServer = nil
-baseDirectory = File.expand_path(File.dirname(__FILE__) + "/../")
+baseDirectory = File.expand_path(File.dirname(__FILE__) + "/../../")
 @myProject = ProjectServer.new('CARBIDE-SERVER', baseDirectory)
 puts "Using directory " + baseDirectory
-@webServer = WebServer.new('0.0.0.0', '172.17.0.42', 6400, baseDirectory)
+@webServer = WebServer.new('0.0.0.0', 'alpha0.carb-ide.com', 6400, baseDirectory)
 Thread.abort_on_exception = false
 
 myProjectThread = Thread.new {

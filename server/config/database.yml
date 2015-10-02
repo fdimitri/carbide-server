@@ -19,7 +19,7 @@ development:
   database: cstest1
   username: root
   password: bu:tln563
-  socket: /var/run/mysqld/mysqld.sock
+  socket: /var/lib/mysql/mysql.sock
   timeout: 20000
   pool: 50
   #host: 127.0.0.1
