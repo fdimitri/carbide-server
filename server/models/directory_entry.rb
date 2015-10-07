@@ -29,7 +29,7 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
     data = jsonMsg['insertDataMultiLine']['data']
     startChar = jsonMsg['insertDataMultiLine']['startChar'].to_i
     length = data.length
-    FileChange.create(:changeType => "insertDataMultiLine", :changeData => YAML.dump(jsonMsg), :startLine => startLine, :startChar => startChar, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+    FileChange.create(:changeType => "insertDataMultiLine", :changeData => (jsonMsg.to_json), :startLine => startLine, :startChar => startChar, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
   end
 
   def recvMsg_insertDataSingleLine(client, jsonMsg)
@@ -41,7 +41,7 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
       return false
     end
     length = data.length
-    FileChange.create(:changeType => "insertDataSingleLine", :changeData => YAML.dump(jsonMsg), :startLine => line, :startChar => char, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+    FileChange.create(:changeType => "insertDataSingleLine", :changeData => (jsonMsg.to_json), :startLine => line, :startChar => char, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
   end
 
   def recvMsg_deleteDataSingleLine(client, jsonMsg)
@@ -49,7 +49,7 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
     data = jsonMsg['deleteDataSingleLine']['data'].to_s
     char = jsonMsg['deleteDataSingleLine']['ch'].to_i
     length = data.length
-    FileChange.create(:changeType => "deleteDataSingleLine", :changeData => YAML.dump(jsonMsg), :startLine => line, :startChar => char, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+    FileChange.create(:changeType => "deleteDataSingleLine", :changeData => (jsonMsg.to_json), :startLine => line, :startChar => char, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
   end
 
   def recvMsg_deleteDataMultiLine(client, jsonMsg)
@@ -59,7 +59,7 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
     endChar = ml['endChar'].to_i
     endLine = ml['endLine'].to_i
     lineData = ml['data']
-    FileChange.create(:changeType => "deleteDataMultiLine", :changeData => YAML.dump(jsonMsg), :startLine => startLine, :startChar => startChar, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+    FileChange.create(:changeType => "deleteDataMultiLine", :changeData => (jsonMsg.to_json), :startLine => startLine, :startChar => startChar, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
   end
 
   def getDocument()
@@ -103,7 +103,7 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
           self.send("pre_" + change.changeType, document, change)
         end
         if (document.respond_to?("do_" + change.changeType))
-          document.send("do_" + change.changeType, nil, YAML.load(change.changeData))
+          document.send("do_" + change.changeType, nil, JSON.parse(change.changeData))
         end
       end
     end
@@ -115,7 +115,7 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
 
   def cmd_setContents(document, change)
     data = change.changeData
-    document.setContents(YAML.load(data))
+    document.setContents((JSON.parse(data)))
     return true
   end
 
@@ -334,7 +334,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
           if (userId == nil)
             userId = 1
           end
-          FileChange.create(:changeType => "setContents", :changeData => YAML.dump(data), :startLine => 0, :startChar => 0, :DirectoryEntry_id => x.id, :revision => 0, :User_id => userId)
+          FileChange.create(:changeType => "setContents", :changeData => ((data.to_json)), :startLine => 0, :startChar => 0, :DirectoryEntry_id => x.id, :revision => 0, :User_id => userId)
         elsif (x.filechanges.count > 0)
           # The database takes priority over the filesystem, although we may change this once we have a diff system in (so filesystem modifications affect the database)
           puts "Current filechanges.count: " + x.filechanges.count.to_s

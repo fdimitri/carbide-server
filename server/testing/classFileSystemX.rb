@@ -5,9 +5,15 @@ require 'yaml'
 # the database, it may be called at any time to import new files.
 
 class FileSystemBase
+
   def initialize(baseDirectory, fileTree)
     @fileTree = fileTree
     @baseDirectory = baseDirectory
+fileBeginings = "([RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc)"
+fileEndings = "(erb|rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp)"	
+	@FileEndings = "\.#{fileEndings}$"
+	@FileBeginings = "^#{fileBeginings}"
+
   end
 
   def getFilesFromDirectory(directoryName)
@@ -58,7 +64,7 @@ class FileSystemBase
       # createFileTree(value) when value['type'] == file, although files will
       # not have children they will not see this function as the tree parameter
       if (tree['type'] == 'file')
-        if ((/\.(erb|rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp)$/.match(tree['name'])) || (/[RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc/.match(tree['name'])))
+        if (/#{@FileEndings}/.match(tree['name']) || /#{@FileBeginings}/.match(tree['name']))
           #puts "Attempting to open file: " + @baseDirectory + tree['fullpath']
           fd = File.open(@baseDirectory + tree['fullpath'], "rb");
           data = fd.read.force_encoding('utf-8')
@@ -123,12 +129,16 @@ class FileSystemBase
         else
           # File doesn't exist
         end
-
-        if ((/\.(erb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp)$/.match(value['name'])) || (/^([RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc)/.match(value['name'])))
+        if (/#{@FileEndings}/.match(value['name']) || /#{@FileBeginings}/.match(value['name']))
           # If it's a file that matches out hacked in regex, let's read it and pass the data along to createFile()
           if (!x || (x && x.filechanges.count == 0))
             #puts "Attempting to open file: " + @baseDirectory + value['fullPath']
             fd = File.open(@baseDirectory + value['fullPath'], "rb");
+if (fd == false) 
+while (!fd) do
+fd = File.open(@baseDirectory + value['fullPath'], "rb");
+end
+end
             data = fd.read
             fd.close
             @fileTree.createFile(value['fullPath'], nil, data)

@@ -9,6 +9,7 @@ require 'bcrypt'
 require 'rails-erd'
 require 'mysql2'
 require 'openssl'
+require 'base64'
 VM_OPTIONAL =   0x00001
 VM_REQUIRED =   0x00002
 VM_NOTALLOW =   0x00004
@@ -50,7 +51,7 @@ Dir["./client_models/*rb"].sort.each { |file|
   require file
 }
 
-#ActiveRecord::Base.logger = Logger.new('ActiveRecord-debug.log')
+ActiveRecord::Base.logger = Logger.new('/home/carbide/ActiveRecord-debug.log')
 
 configuration = YAML::load(IO.read('config/database.yml'))
 #clientconfig = YAML::load(IO.read('../../carbide-client/config/database.yml'))
