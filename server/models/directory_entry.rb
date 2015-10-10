@@ -103,7 +103,11 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
           self.send("pre_" + change.changeType, document, change)
         end
         if (document.respond_to?("do_" + change.changeType))
-          document.send("do_" + change.changeType, nil, JSON.parse(change.changeData))
+if (change.changeData.is_json?)
+          document.send("do_" + change.changeType, nil, JSON.parse(change.changeData, :quirks_mode => true))
+else
+          document.send("do_" + change.changeType, nil, change.changeData)
+end
         end
       end
     end
@@ -115,7 +119,11 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
 
   def cmd_setContents(document, change)
     data = change.changeData
+if (data.is_json?)
     document.setContents((JSON.parse(data)))
+else
+document.setContents(data)
+end
     return true
   end
 
