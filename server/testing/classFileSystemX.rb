@@ -10,8 +10,8 @@ class FileSystemBase
     @fileTree = fileTree
     @baseDirectory = baseDirectory
 fileBeginings = "([RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc)"
-fileEndings = "(erb|rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp)"	
-	@FileEndings = "\.#{fileEndings}$"
+fileEndings = "[\.](erb|rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp|sql)"	
+	@FileEndings = "#{fileEndings}$"
 	@FileBeginings = "^#{fileBeginings}"
 
   end

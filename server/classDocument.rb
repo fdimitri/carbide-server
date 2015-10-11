@@ -31,7 +31,7 @@ class DocumentBase
   end
 
   def getContents
-    data = @data.join("\n").force_encoding('ISO-8859-1').encode('utf-8')
+    data = @data.join("\n").encode('UTF-8', invalid: :replace, undef: :replace, replace: '@')
     return data
   end
 
@@ -106,11 +106,18 @@ class DocumentBase
 
 
   def setContents(data)
+    $Project.logMsg(LOG_FENTRY, "Entering function .. data is of class " + data.class.to_s)
+    $Project.logMsg(LOG_FPARAMS, "Data: " + YAML.dump(data))
     if (data.is_a?(String))
-      @data = data.split(/\n/)
+      @data = data.split("\n")
+    elsif (data.is_a?(Array))
+      if (data.length == 1) 
+	@data = data.first.split("\n")
+      else
+        @data = data
+      end
     else
-      puts "Document::setContents(): Data was not a string!?"
-      puts YAML.dump(data)
+      puts "Document::setContents(): Data was not a string or array!?"
     end
   end
 
@@ -188,7 +195,7 @@ class Document < DocumentBase
           'documentRevision' => @revision,
           'numLines' => @data.length,
           'docHash' => getHash(@revision),
-          'data' => @data.join("\n").encode('utf-8'),
+          'data' => @data.join("\n").encode('UTF-8', invalid: :replace, undef: :replace, replace: '@'),
           'document' => @name,
         }
       }

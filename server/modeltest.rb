@@ -10,11 +10,40 @@ require 'rails-erd'
 require 'mysql2'
 require 'openssl'
 require 'base64'
+
 VM_OPTIONAL =   0x00001
 VM_REQUIRED =   0x00002
 VM_NOTALLOW =   0x00004
 VM_STRICT   =   0x00008
 VM_REGEX_VALIDPATH = '/^\/[\w\d\/-_\s].*/'
+
+
+LOG_DEBUG	    =0x00000001
+LOG_VERBOSE	    =0x00000002
+LOG_DUMP	    =0x00000004
+LOG_FENTRY	    =0x00000008
+LOG_EXCEPTION	=0x00000010
+LOG_INFO	    =0x00000020
+LOG_WARN    	=0x00000040
+LOG_ERROR   	=0x00000080
+LOG_VERYVERBOSE	=0x00000100
+LOG_FPARAMS 	=0x00000200
+LOG_FRETURN 	=0x00000400
+LOG_FRPARAM	    =0x00000800
+
+$logTranslate = {
+	LOG_DEBUG => 'D',
+	LOG_VERBOSE => 'V',
+	LOG_DUMP => 'Y',
+	LOG_FENTRY => 'F',
+	LOG_EXCEPTION => 'e',
+	LOG_INFO => 'I',
+	LOG_ERROR => 'E',
+	LOG_VERYVERBOSE => "v",
+	LOG_FPARAMS => 'P',
+	LOG_FRETURN => 'R',
+	LOG_FRPARAM => 'r',
+}
 
 require 'rails/all'
 require 'bundler'
@@ -77,6 +106,26 @@ class ProjectServer
   attr_accessor	:FileTree
   attr_accessor :taskBoards
   attr_accessor :webServer
+  public 
+  def logMsg(logLevel, msg)
+	if ((logLevel & @logLevel) == 0 ) 
+		return(false)
+	end
+	levelStr = String.new
+	$logTranslate.each do |key, value|
+		if ((logLevel & key) != 0)
+			levelStr += value
+		end
+	end
+	levelStr = "%12s" % levelStr
+	timeStr = '%.2f' % Time.now.to_f
+	threadId = Thread.current.inspect
+	callingFunction = caller.first.inspect[/\`(.*)\'/,1]
+	callingLine = caller.first.inspect[/line.*(\d+)/,1]
+	logMsg = "[#{timeStr}] (#{levelStr}) #{callingFunction}:#{callingLine} (): #{msg}"
+	puts logMsg
+  end
+
 
   def readTree()
     fsb = FileSystemBase.new(@baseDirectory, @FileTree)
@@ -89,6 +138,10 @@ class ProjectServer
   end
 
   def initialize(projectName, baseDirectory)
+    $Project = self
+    @logLevel = 0xFFFFFFFF
+    @logLevel = (@logLevel & ~(LOG_FRPARAM))
+    puts "logLevel: " + "%#b" % "#{@logLevel}"
     @chats = { }
     @clients = { }
     @documents = { }
@@ -98,7 +151,7 @@ class ProjectServer
     @projectName = projectName
     @FileTree = FileTreeX.new
     @FileTree.setOptions(projectName, self)
-    @baseDirectory = baseDirectory;
+    @baseDirectory = baseDirectory
     readTree()
     for n in 0..0
       #Lots of bash consoles and chats by default to stress test and
@@ -857,12 +910,11 @@ class ProjectServer
 end
 
 
-
-@myProject = nil
-@webServer = nil
+puts "First line of code to run"
 baseDirectory = File.expand_path(File.dirname(__FILE__) + "/../../")
-@myProject = ProjectServer.new('CARBIDE-SERVER', baseDirectory)
 puts "Using directory " + baseDirectory
+$Project = ProjectServer.new('CARBIDE-SERVER', baseDirectory)
+@myProject = $Project
 @webServer = WebServer.new('0.0.0.0', 'alpha0.carb-ide.com', 6400, baseDirectory)
 Thread.abort_on_exception = false
 
