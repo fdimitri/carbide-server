@@ -33,11 +33,16 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
   end
 
   def recvMsg_insertDataSingleLine(client, jsonMsg)
+    $Project.logMsg(LOG_FENTRY, "Entered function")
+    $Project.logMsg(LOG_FPARAMS, "client: " + YAML.dump(client))
+    $Project.logMsg(LOG_FPARAMS, "jsonMsg: " + YAML.dump(jsonMsg))
     line = jsonMsg['insertDataSingleLine']['line'];
     odata = jsonMsg['insertDataSingleLine']['data']
-    data = odata.sub("\n", "").sub("\r", "")
+    data = odata.sub("\r", "")
     char = jsonMsg['insertDataSingleLine']['ch'].to_i
     if (!data.is_a?(String))
+      $Project.logMsg(LOG_ERROR, "Data was not a string, it was: " + data.class.to_s)
+      $Project.logMsg(LOG_ERROR | LOG_VERBOSE | LOG_DEBUG | LOG_DUMP, "Data dump: " + YAML.dump(data))
       return false
     end
     length = data.length

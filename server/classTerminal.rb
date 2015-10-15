@@ -7,28 +7,29 @@ require 'termios'
 class TerminalBase
 	attr_accessor	:clients
 	attr_accessor	:termName
-
+	
 	def initialize(project, termName)
+		$Project.logMsg(LOG_FENTRY, "Entering function (project, termName)")
 		@project = project
+		$Project.logMsg(LOG_FPARAMS, "project: " + project.inspect.to_s)		
 		@termName = termName
-		@clients = { }
-		@sizes = { }
-		puts "Terminal term #{termName} initialized"
+		$Project.logMsg(LOG_FPARAMS, "termName: #{termName}")		
+		@clients = { } 
+		@sizes = { }                                         
+		puts "Terminal term #{termName} initialized"        
 		@output, @input, @pid = PTY.spawn("/bin/bash -l")
-		@po = Thread.new {
-			while 1 do
-				begin
-					buffer = @output.read_nonblock(1024)
-				rescue IO::WaitReadable
-					IO.select([@output])
-					retry
-				end
+		@po = Thread.new {                                 
+		while 1 do
+			begin
+				buffer = @output.read_nonblock(1024)
+				rescue IO::WaitReadable  
+	    				IO.select([@output])
+	    			retry
 				sendToClientsChar(buffer)
-				#@output.each_char { |c|
-				#        sendToClientsChar(c)
-				#}
 			end
 		}
+				#@output.each_char { |c|
+				#        sendToClientsChar(c)
 		resizeSelf()
 	end
 
