@@ -354,7 +354,8 @@ class Document < DocumentBase
     length = data.length
 
     if (!data.is_a?(String))
-      puts "Data was not of type string"
+$Project.logMsg(LOG_ERROR, "Input data was not of type string")
+# NOTE: We need to return an error message to the client
       puts data.inspect
       return false
     end
