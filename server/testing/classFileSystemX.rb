@@ -141,10 +141,12 @@ class FileSystemBase
               end
             end
             data = fd.read
-            data = data.gsub!("\r\n", "\n").gsub!("\r", "\n")
+            if (data && data.is_a(String) && data.length)
+              data = data.gsub!("\r\n", "\n").gsub!("\r", "\n")
+              @fileTree.createFile(value['fullPath'], nil, data)
+              $Project.logMsg(LOG_INFO | LOG_VERBOSE, "createFile #{value['fullPath']} with data")
+            end
             fd.close
-            @fileTree.createFile(value['fullPath'], nil, data)
-            puts "createFile #{value['fullPath']} with data"
           else
             @fileTree.createFile(value['fullPath'], nil, nil)
           end
