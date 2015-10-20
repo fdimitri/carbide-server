@@ -109,6 +109,7 @@ class DocumentBase
     $Project.logMsg(LOG_FENTRY, "Entering function .. data is of class " + data.class.to_s)
     $Project.logMsg(LOG_FPARAMS, "Data: " + YAML.dump(data))
     if (data.is_a?(String))
+        data = data.gsub("\r","")
       @data = data.split("\n")
     elsif (data.is_a?(Array))
       if (data.length == 1) 
@@ -181,7 +182,7 @@ class Document < DocumentBase
       if (d.is_a?(String))
         d = d.sub("\n","").sub("\r","")
       else
-        puts "Document::procMsg_getContents ran into an error with the data array -- element is not a string"
+        $Project.logMsg(LOG_ERROR, "Document::procMsg_getContents ran into an error with the data array -- element is not a string")
         puts YAML.dump(d)
       end
     }
@@ -361,6 +362,7 @@ $Project.logMsg(LOG_ERROR, "Input data was not of type string")
     end
     rval = do_insertDataSingleLine(client, jsonMsg)
     if (!rval)
+        # NOTE: We need to return an error message to the client
       return false
     end
     puts "Sending message to self :sendMsg_cInsertDataSingleLine.."
@@ -393,7 +395,7 @@ $Project.logMsg(LOG_ERROR, "Input data was not of type string")
     # puts YAML.dump(@data)
     # puts "insertDataSingleLine(): Called #{jsonMsg}"
     # puts "Odata is: " + odata.inspect
-    if ((odata == "\n" || odata == '\n'))
+    if ((odata == "\n" || odata == "\r\n"))
       if (char == 0)
         @data.insert(line, "")
         return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
@@ -454,7 +456,6 @@ $Project.logMsg(LOG_ERROR, "Input data was not of type string")
         str.insert(a, " ")
         a += 1
       end
-      puts "#{str.length} is less than #{char}.. this may crash"
     end
     str.insert(char, data)
     @data.fetch(line, str)
