@@ -395,7 +395,7 @@ $Project.logMsg(LOG_ERROR, "Input data was not of type string")
     # puts YAML.dump(@data)
     # puts "insertDataSingleLine(): Called #{jsonMsg}"
     # puts "Odata is: " + odata.inspect
-    if ((odata == "\n" || odata == "\r\n"))
+    if ((odata == '\n' || odata == '\r\n' || odata == '\r'))
       if (char == 0)
         @data.insert(line, "")
         return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
