@@ -86,8 +86,12 @@ class DocumentBase
       puts "Excellent, file has NOT changed since we read it!"
     end
 
-    fd = File.open(@baseDirectory + @name, "wb");
+    if (!File.exist?(@baseDirectory + @name))
+      $Project.logMsg(LOG_ERROR, "Unable to open file for writing -- doesn't exist")
+      return FALSE
+    end
 
+    fd = File.open(@baseDirectory + @name, "wb");
     if (!fd)
       puts "Failed to open file #{@name}"
       if (thread)
