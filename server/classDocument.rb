@@ -112,7 +112,7 @@ class DocumentBase
         data = data.gsub("\r","")
       @data = data.split("\n")
     elsif (data.is_a?(Array))
-      if (data.length == 1) 
+      if (data.length == 1)
 	@data = data.first.split("\n")
       else
         @data = data

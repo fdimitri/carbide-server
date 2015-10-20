@@ -9,10 +9,10 @@ class FileSystemBase
   def initialize(baseDirectory, fileTree)
     @fileTree = fileTree
     @baseDirectory = baseDirectory
-fileBeginings = "([RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc)"
-fileEndings = "[\.](erb|rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp|sql)"	
-	@FileEndings = "#{fileEndings}$"
-	@FileBeginings = "^#{fileBeginings}"
+    fileBeginings = "([RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc)"
+    fileEndings = "[\.](erb|rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp|sql)"
+    @FileEndings = "#{fileEndings}$"
+    @FileBeginings = "^#{fileBeginings}"
 
   end
 
@@ -68,6 +68,7 @@ fileEndings = "[\.](erb|rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|
           #puts "Attempting to open file: " + @baseDirectory + tree['fullpath']
           fd = File.open(@baseDirectory + tree['fullpath'], "rb");
           data = fd.read.force_encoding('utf-8')
+          data = data.gsub!("\r\n", "\n").gsub!("\r", "\n")
           fd.close
           @fileTree.createFile(tree['name'], nil, data)
           puts "createFile #{tree['name']}"
@@ -134,12 +135,13 @@ fileEndings = "[\.](erb|rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|
           if (!x || (x && x.filechanges.count == 0))
             #puts "Attempting to open file: " + @baseDirectory + value['fullPath']
             fd = File.open(@baseDirectory + value['fullPath'], "rb");
-if (fd == false) 
-while (!fd) do
-fd = File.open(@baseDirectory + value['fullPath'], "rb");
-end
-end
+            if (fd == false)
+              while (!fd) do
+                fd = File.open(@baseDirectory + value['fullPath'], "rb");
+              end
+            end
             data = fd.read
+            data = data.gsub!("\r\n", "\n").gsub!("\r", "\n")
             fd.close
             @fileTree.createFile(value['fullPath'], nil, data)
             puts "createFile #{value['fullPath']} with data"

@@ -32,7 +32,7 @@ class TerminalBase
 		resizeSelf()
 	end
 
-	
+
 
 	def sendToClientsChar(c)
 		termMsg = {
