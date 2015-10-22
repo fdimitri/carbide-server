@@ -499,10 +499,25 @@ class ProjectServer
           if (!msg.has_key?(key))
             puts "Msg has no key #{key}"
             errorReasons << 'Missing required key: {#key}'
-          elsif (val.has_key?('classNames') && !(msg[key].class.name == val['classNames']))
-            puts "Msg has invalid clasName!"
-            className = msg[key].class.name
-            errorReasons << "Invalid class type: #{className}, should be #{val['classNames']}"
+          elsif (val.has_key?('classNames'))
+						if (val['classNames'].is_a?(String))
+							if (!(msg[key].class.name == val['classNames']))
+            		puts "Msg has invalid clasName!"
+            		className = msg[key].class.name
+            		errorReasons << "Invalid class type: #{className}, should be #{val['classNames']}"
+							end
+						else
+							cnValidity = false
+							val['classNames'].each { |cn|
+								if (msg[key].class.name == cn)
+									cnValidity = true
+								end
+							}
+							if (!cnValidity)
+								className = msg[key].class.name
+								errorReasons << "Invalid class type: #{className}, should be one of #{val['classNames'].inspect}"
+							end
+						end
           else
             puts "Msg has key and proper className"
             # Everything is OK, check subObjects if they exist!

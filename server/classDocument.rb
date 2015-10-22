@@ -369,32 +369,31 @@ class Document < DocumentBase
             'classNames' => 'String',
             'reqBits' => VM_REQUIRED | VM_STRICT,
             'matchExp' => '/.*/'
-          }
+          },
           'ch' => {
             'classNames' => [ 'String', 'FixNum' ],
             'reqBits' => VM_REQUIRED | VM_STRICT,
-          }
+          },
           'line' => {
             'classNames' => [ 'String', 'FixNum' ],
             'reqBits' => VM_REQUIRED | VM_STRICT,
-          }
+          },
           'data' => {
             'classNames' => 'String',
             'reqBits' => VM_REQUIRED | VM_STRICT,
             'matchExp' => '/.*/'
-          }
-
+          },
         }
       }
     }
     vMsg = $Project.validateMsg(createTaskBoardValidation, msg)
     if (!vMsg['status'])
-			$Project.logMsg(LOG_ERROR, "Unable to validate message")
-			$Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
+      $Project.logMsg(LOG_ERROR, "Unable to validate message")
+      $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
       $Project.generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'createTerminal')
       return false
     end
-		$Project.logMsg(LOG_INFO, "Message successfully validated")
+    $Project.logMsg(LOG_INFO, "Message successfully validated")
     begin
       line = jsonMsg['insertDataSingleLine']['line'];
       odata = jsonMsg['insertDataSingleLine']['data']
