@@ -297,7 +297,11 @@ class ProjectServer
   end
 
   def procMsg_createTerminal(ws,msg)
+		$Project.logMsg(LOG_FENTRY, "Called")
     hash = 0
+		if (!msg.has_key?('hash'))
+			msg['hash'] = hash
+		end
     createTerminalValidation = {
       'hash' => {
         'classNames' => 'String',
@@ -317,9 +321,12 @@ class ProjectServer
     }
     vMsg = validateMsg(createTaskBoardValidation, msg)
     if (!vMsg['status'])
+			$Project.logMsg(LOG_ERROR, "Unable to validate message")
+			$Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
       generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
       return false
     end
+		$Project.logMsg(LOG_INFO, "Message successfully validated")
 
     createTerminal = msg['createTerminal']
     termName = createTerminal['terminalName']
@@ -360,9 +367,12 @@ class ProjectServer
     }
     vMsg = validateMsg(createTaskBoardValidation, msg)
     if (!vMsg['status'])
-      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+			$Project.logMsg(LOG_ERROR, "Unable to validate message")
+			$Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
+      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'createTaskBoard')
       return false
     end
+		$Project.logMsg(LOG_INFO, "Message successfully validated")
 
     createTaskBoard = msg['createTaskBoard']
     boardName = createTaskBoard['taskBoardName']
@@ -384,6 +394,10 @@ class ProjectServer
 
   def procMsg_openTerminal(ws,msg)
     hash = 0
+		if (!msg.has_key?('hash'))
+			msg['hash'] = hash
+		end
+
     openTerminalValidation = {
       'hash' => {
         'classNames' => 'String',
@@ -403,9 +417,12 @@ class ProjectServer
     }
     vMsg = validateMsg(openTerminalValidation, msg)
     if (!vMsg['status'])
+			$Project.logMsg(LOG_ERROR, "Unable to validate message")
+			$Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
       generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
       return false
     end
+		$Project.logMsg(LOG_INFO, "Message successfully validated")
 
     openTerminal = msg['openTerminal']
     termName = openTerminal['termName']
@@ -433,7 +450,7 @@ class ProjectServer
     clientString = clientReply.to_json
     puts clientString
     puts "Sending to client!"
-    sendToClient(@clients[ws], clientString)
+    sendToClient(@clients[client], clientString)
     return false
   end
 
