@@ -353,47 +353,55 @@ class Document < DocumentBase
 
   def procMsg_insertDataSingleLine(client, jsonMsg)
     $Project.logMsg(LOG_FENTRY, "Called")
-    $Project.logMsg(LOG_FPARAMS, "Client:\n" + YAML.dump(client))
-    $Project.logMsg(LOG_FPARAMS, "jsonMsg:\n" + YAML.dump(jsonMsg))
-    jsonMsg['hash'] = 0xFF
-    insertDataSingleLineValidation = {
-      'hash' => {
-        'classNames' => 'String',
-        'reqBits' => VM_OPTIONAL | VM_STRICT,
-      },
-      'insertDataSingleLine' => {
-        'classNames' => 'Hash',
-        'reqBits' => VM_REQUIRED | VM_STRICT,
-        'subObjects' => {
-          'type' => {
-            'classNames' => 'String',
-            'reqBits' => VM_REQUIRED | VM_STRICT,
-            'matchExp' => '/.*/'
-          },
-          'ch' => {
-            'classNames' => [ 'String', 'FixNum' ],
-            'reqBits' => VM_REQUIRED | VM_STRICT,
-          },
-          'line' => {
-            'classNames' => [ 'String', 'FixNum' ],
-            'reqBits' => VM_REQUIRED | VM_STRICT,
-          },
-          'data' => {
-            'classNames' => 'String',
-            'reqBits' => VM_REQUIRED | VM_STRICT,
-            'matchExp' => '/.*/'
-          },
+    begin
+      $Project.logMsg(LOG_FPARAMS, "Client:\n" + YAML.dump(client))
+      $Project.logMsg(LOG_FPARAMS, "jsonMsg type: #{jsonMsg.class.to_s}, dump:\n" + YAML.dump(jsonMsg))
+      jsonMsg['hash'] = 0xFF
+      $Project.logMsg(LOG_FPARAMS, "jsonMsg type: #{jsonMsg.class.to_s}, dump:\n" + YAML.dump(jsonMsg))
+      insertDataSingleLineValidation = {
+        'hash' => {
+          'classNames' => 'String',
+          'reqBits' => VM_OPTIONAL | VM_STRICT,
+        },
+        'insertDataSingleLine' => {
+          'classNames' => 'Hash',
+          'reqBits' => VM_REQUIRED | VM_STRICT,
+          'subObjects' => {
+            'type' => {
+              'classNames' => 'String',
+              'reqBits' => VM_REQUIRED | VM_STRICT,
+              'matchExp' => '/.*/'
+            },
+            'ch' => {
+              'classNames' => [ 'String', 'FixNum' ],
+              'reqBits' => VM_REQUIRED | VM_STRICT,
+            },
+            'line' => {
+              'classNames' => [ 'String', 'FixNum' ],
+              'reqBits' => VM_REQUIRED | VM_STRICT,
+            },
+            'data' => {
+              'classNames' => 'String',
+              'reqBits' => VM_REQUIRED | VM_STRICT,
+              'matchExp' => '/.*/'
+            },
+          }
         }
       }
-    }
-    vMsg = $Project.validateMsg(createTaskBoardValidation, msg)
-    if (!vMsg['status'])
-      $Project.logMsg(LOG_ERROR, "Unable to validate message")
-      $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
-      $Project.generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'createTerminal')
-      return false
+      vMsg = $Project.validateMsg(createTaskBoardValidation, msg)
+      if (!vMsg['status'])
+        $Project.logMsg(LOG_ERROR, "Unable to validate message")
+        $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
+        $Project.generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'createTerminal')
+        return false
+      end
+      $Project.logMsg(LOG_INFO, "Message successfully validated")
+    rescue Exception => e
+      puts YAML.dump(e)
+      $Project.logMsg(LOG_ERROR, "We had an exception (Section 0x00)!")
+      $Project.logMsg(LOG_ERROR, YAML.dump(e))
     end
-    $Project.logMsg(LOG_INFO, "Message successfully validated")
+
     begin
       line = jsonMsg['insertDataSingleLine']['line'];
       odata = jsonMsg['insertDataSingleLine']['data']
