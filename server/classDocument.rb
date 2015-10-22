@@ -117,7 +117,7 @@ class DocumentBase
       @data = data.split("\n")
     elsif (data.is_a?(Array))
       if (data.length == 1)
-	@data = data.first.split("\n")
+        @data = data.first.split("\n")
       else
         @data = data
       end
@@ -186,8 +186,8 @@ class Document < DocumentBase
       if (d.is_a?(String))
         d = d.sub("\n","").sub("\r","")
       else
-        $Project.logMsg(LOG_ERROR, "Document::procMsg_getContents ran into an error with the data array -- element is not a string")
-        puts YAML.dump(d)
+        $Project.logMsg(LOG_ERROR, "Ran into an error with the data array -- element is not a string. Type is: " + d.class.to_s)
+        $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(d));
       end
     }
     begin
@@ -352,6 +352,9 @@ class Document < DocumentBase
 
 
   def procMsg_insertDataSingleLine(client, jsonMsg)
+    $Project.logMsg(LOG_FENTRY, "Called")
+    $Project.logMsg(LOG_FPARAMS, "Client:\n" + YAML.dump(client))
+    $Project.logMsg(LOG_FPARAMS, "jsonMsg:\n" + YAML.dump(jsonMsg))
     line = jsonMsg['insertDataSingleLine']['line'];
     odata = jsonMsg['insertDataSingleLine']['data']
     #data = odata.sub("\n", "").sub("\r", "")
@@ -359,14 +362,14 @@ class Document < DocumentBase
     length = data.length
 
     if (!data.is_a?(String))
-$Project.logMsg(LOG_ERROR, "Input data was not of type string")
-# NOTE: We need to return an error message to the client
+      $Project.logMsg(LOG_ERROR, "Input data was not of type string")
+      # NOTE: We need to return an error message to the client
       puts data.inspect
       return false
     end
     rval = do_insertDataSingleLine(client, jsonMsg)
     if (!rval)
-        # NOTE: We need to return an error message to the client
+      # NOTE: We need to return an error message to the client
       return false
     end
     puts "Sending message to self :sendMsg_cInsertDataSingleLine.."
@@ -384,36 +387,39 @@ $Project.logMsg(LOG_ERROR, "Input data was not of type string")
   end
 
   def do_insertDataSingleLine(client, jsonMsg)
-    line = jsonMsg['insertDataSingleLine']['line'];
-    odata = jsonMsg['insertDataSingleLine']['data']
-    data = odata.sub("\n", "").sub("\r", "")
-    char = jsonMsg['insertDataSingleLine']['ch'].to_i
-    length = data.length
-    if (!data.is_a?(String))
-      puts "Data was not of type string"
-      puts data.inspect
-      return false
-    end
-
-    # puts "YAML @data"
-    # puts YAML.dump(@data)
-    # puts "insertDataSingleLine(): Called #{jsonMsg}"
-    # puts "Odata is: " + odata.inspect
-    if ((odata == '\n' || odata == '\r\n' || odata == '\r'))
-      if (char == 0)
-        @data.insert(line, "")
-        return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
-      else
+    $Project.logMsg(LOG_FENTRY, "Called")
+    begin
+      if (!odata.is_a?(String))
+        $Project.logMsg(LOG_ERROR, "Data was not of type string, it has class: " + jsonMsg['insertDataSingleLine']['data'].class.to_s)
+        return false
+      end
+      line = jsonMsg['insertDataSingleLine']['line']
+      odata = jsonMsg['insertDataSingleLine']['data']
+      data = odata.sub("\n", "").sub("\r", "")
+      char = jsonMsg['insertDataSingleLine']['ch'].to_i
+      length = data.length
+      # puts "YAML @data"
+      # puts YAML.dump(@data)
+      # puts "insertDataSingleLine(): Called #{jsonMsg}"
+      # puts "Odata is: " + odata.inspect
+      if ((odata == '\n' || odata == '\r\n' || odata == '\r'))
+        $Project.logMsg(LOG_INFO, "odata was \\n, \\r\\n, or \\r")
+        if (char == 0)
+          # Beginning of line, just insert a new line
+          @data.insert(line, "")
+          return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
+        end
         myStr = @data.fetch(line)
-        if (!myStr)
+        if (!myStr || !myStr.length)
+          # There was no data on the line
           # puts "There was no existing data, just insert lines"
-          myStr = ""
-          @data.insert(line, myStr)
-          @data.insert(line+1, myStr)
+          @data.insert(line, "")
+          #@data.insert(line+1, myStr) #I think this is incorrect
           # puts "YAML @data"
           # puts YAML.dump(@data)
           return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
-        else
+        end
+        if (myStr && myStr.length)
           begStr = myStr[0..(char - 1)]
           endStr = myStr[(char)..-1]
           # puts "endStr is " + endStr.inspect
@@ -438,14 +444,17 @@ $Project.logMsg(LOG_ERROR, "Input data was not of type string")
           return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
         end
       end
-    end
 
-    if (@data[line].nil?)
-      @data.insert(line, data.to_str);
-    else
-      appendToLine(line, char, data)
+      if (@data[line].nil?)
+        @data.insert(line, data.to_str);
+      else
+        appendToLine(line, char, data)
+      end
+      return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
+    rescue Exception => e
+      $Project.logMsg(LOG_ERROR, "We had an exception!")
+      $Project.logMsg(LOG_ERROR, YAML.dump(e))
     end
-    return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
   end
 
   def appendToLine(line, char, data)
@@ -577,6 +586,5 @@ $Project.logMsg(LOG_ERROR, "Input data was not of type string")
       #client.sendMsg_Fail('deleteDataSingleLine');
       return false
     end
-
   end
 end
