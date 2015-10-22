@@ -52,7 +52,7 @@ Bundler.require(*Rails.groups)
 require 'devise/orm/active_record'
 
 puts Gem.loaded_specs.values.map {|x| "#{x.name} #{x.version}"}
-	
+
 
 Dir["./class*rb"].each { |file|
   puts "Require: " + file
@@ -106,9 +106,9 @@ class ProjectServer
   attr_accessor	:FileTree
   attr_accessor :taskBoards
   attr_accessor :webServer
-  public 
+  public
   def logMsg(logLevel, msg)
-	if ((logLevel & @logLevel) == 0 ) 
+	if ((logLevel & @logLevel) == 0 )
 		return(false)
 	end
 	levelStr = String.new
@@ -938,6 +938,17 @@ puts webServerThread.status
 puts myProjectThread.status
 
 while true do
+	if (!myProjectThread.alive?)
+		$Project = ProjectServer.new('CARBIDE-SERVER', baseDirectory)
+		@myProject = $Project
+		myProjectThread = Thread.new {
+		  @myProject.start()
+		}
+		puts "Registering myProject with webServer"
+		@webServer.registerProject(@myProject)
+
+	end
+
   if (!webServerThread.alive? || !myProjectThread.alive?)
     puts "WS Status: " + webServerThread.status.to_s
     puts "Project Status: " + myProjectThread.status.to_s

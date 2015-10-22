@@ -355,6 +355,7 @@ class Document < DocumentBase
     $Project.logMsg(LOG_FENTRY, "Called")
     $Project.logMsg(LOG_FPARAMS, "Client:\n" + YAML.dump(client))
     $Project.logMsg(LOG_FPARAMS, "jsonMsg:\n" + YAML.dump(jsonMsg))
+    begin
     line = jsonMsg['insertDataSingleLine']['line'];
     odata = jsonMsg['insertDataSingleLine']['data']
     #data = odata.sub("\n", "").sub("\r", "")
@@ -373,6 +374,14 @@ class Document < DocumentBase
       return false
     end
     puts "Sending message to self :sendMsg_cInsertDataSingleLine.."
+  rescue Exception => e
+    puts "Failed!"
+    puts YAML.dump(e)
+    puts "Error: " + e.message
+    puts "Backtrace: " + e.backtrace
+
+  end
+
     begin
       puts YAML.dump(rval)
       params = rval['replyParams']

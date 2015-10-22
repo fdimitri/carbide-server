@@ -123,10 +123,11 @@ class FileSystemBase
         # If the file already exists in the database, DO NOTHING!
         x = DirectoryEntryHelper.find_by_srcpath(value['fullPath'])
         if (x)
-          if (x.filechanges.count > 0)
-            @fileTree.createFile(value['fullPath'], nil, nil)
-            next
-          end
+          next
+#          if (x.filechanges.count > 0)
+#            @fileTree.createFile(value['fullPath'], nil, nil)
+#            next
+#          end
         else
           # File doesn't exist
         end
