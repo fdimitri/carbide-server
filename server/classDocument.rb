@@ -388,7 +388,7 @@ class Document < DocumentBase
           }
         }
       }
-      vMsg = $Project.validateMsg(createTaskBoardValidation, msg)
+      vMsg = $Project.validateMsg(insertDataSingleLineValidation, msg)
       if (!vMsg['status'])
         $Project.logMsg(LOG_ERROR, "Unable to validate message")
         $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
