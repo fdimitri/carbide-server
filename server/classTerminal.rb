@@ -16,9 +16,11 @@ class TerminalBase
 		@termName = termName
 		@clients = { }
 		@sizes = { }
-		$Project.logMsg(LOG_INFO, "Terminal term #{termName} initialized")
+		$Project.logMsg(LOG_INFO, "Calling /bin/bash -l through PTY.spawn")
 		@output, @input, @pid = PTY.spawn("/bin/bash -l")
+		$Project.logMsg(LOG_INFO, "Terminal term #{termName} initialized")
 		@po = Thread.new {
+			$Project.logMsg(LOG_INFO, "Thread launched for terminal")
 			while 1 do
 				begin
 					buffer = @output.read_nonblock(1024)
@@ -159,8 +161,8 @@ class TerminalBase
 				minX = size['rows']
 			end
 		end
+		$Project.logMsg(LOG_INFO, "Resizing terminal to #{minX}x#{minY} via input.ioctl")
 		@input.ioctl(Termios::TIOCSWINSZ, [minX,minY,minX,minY].pack("SSSS"))
-		$Project.logMsg(LOG_INFO, "Resizing terminal to #{minX}x#{minY}")
 	end
 
 end
@@ -212,7 +214,7 @@ class Terminal < TerminalBase
 	end
 
 	def procMsg_resizeTerminal(client, jsonMsg)
-		puts "procMsg_resizeTerminal called"
+		$Project.logMsg(LOG_FENTRY, "Called")
 		resizeTerminal = jsonMsg['resizeTerminal']
 		termSize = resizeTerminal['termSize']
 		if (termSize['rows'] && termSize['cols'])

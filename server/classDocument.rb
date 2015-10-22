@@ -113,7 +113,7 @@ class DocumentBase
     $Project.logMsg(LOG_FENTRY, "Entering function .. data is of class " + data.class.to_s)
     $Project.logMsg(LOG_FPARAMS, "Data: " + YAML.dump(data))
     if (data.is_a?(String))
-        data = data.gsub("\r","")
+      data = data.gsub("\r\n","\n").gsub("\r","")
       @data = data.split("\n")
     elsif (data.is_a?(Array))
       if (data.length == 1)
@@ -354,7 +354,7 @@ class Document < DocumentBase
   def procMsg_insertDataSingleLine(client, jsonMsg)
     line = jsonMsg['insertDataSingleLine']['line'];
     odata = jsonMsg['insertDataSingleLine']['data']
-    data = odata.sub("\n", "").sub("\r", "")
+    #data = odata.sub("\n", "").sub("\r", "")
     char = jsonMsg['insertDataSingleLine']['ch'].to_i
     length = data.length
 
