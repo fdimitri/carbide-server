@@ -405,7 +405,7 @@ class Document < DocumentBase
     begin
       line = jsonMsg['insertDataSingleLine']['line'];
       odata = jsonMsg['insertDataSingleLine']['data']
-      #data = odata.sub("\n", "").sub("\r", "")
+      data = odata.sub("\n", "").sub("\r", "")
       char = jsonMsg['insertDataSingleLine']['ch'].to_i
       length = data.length
       rval = do_insertDataSingleLine(client, jsonMsg)
