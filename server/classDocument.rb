@@ -357,7 +357,7 @@ class Document < DocumentBase
       $Project.logMsg(LOG_FPARAMS, "Client:\n" + YAML.dump(client))
       $Project.logMsg(LOG_FPARAMS, "jsonMsg type: #{jsonMsg.class.to_s}, dump:\n" + YAML.dump(jsonMsg))
       jsonMsg['hash'] = 0xFF
-      $Project.logMsg(LOG_FPARAMS, "jsonMsg type: #{jsonMsg.class.to_s}, dump:\n" + YAML.dump(jsonMsg))
+      hash = 0xFF
       insertDataSingleLineValidation = {
         'hash' => {
           'classNames' => 'String',
@@ -388,7 +388,7 @@ class Document < DocumentBase
           }
         }
       }
-      vMsg = $Project.validateMsg(insertDataSingleLineValidation, msg)
+      vMsg = $Project.validateMsg(insertDataSingleLineValidation, jsonMsg)
       if (!vMsg['status'])
         $Project.logMsg(LOG_ERROR, "Unable to validate message")
         $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
