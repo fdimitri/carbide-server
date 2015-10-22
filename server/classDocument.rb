@@ -445,12 +445,12 @@ class Document < DocumentBase
         $Project.logMsg(LOG_ERROR, "Data was not of type string, it has class: " + jsonMsg['insertDataSingleLine']['data'].class.to_s)
         return false
       end
-      $Project.logMsg(LOG_INFO, "odata is: " + odata.gsub("\n", "\\n").gsub("\r","\\r"))
+      $Project.logMsg(LOG_INFO, "odata is: " + odata.gsub("\n", "\\n").gsub("\r","\\r").inspect)
       # puts "YAML @data"
       # puts YAML.dump(@data)
       # puts "insertDataSingleLine(): Called #{jsonMsg}"
       # puts "Odata is: " + odata.inspect
-      if ((odata == '\n' || odata == '\r\n' || odata == '\r'))
+      if ((odata == "\n" || odata == "\r\n" || odata == "\r"))
         $Project.logMsg(LOG_INFO, "odata was \\n, \\r\\n, or \\r")
         if (char == 0)
           # Beginning of line, just insert a new line
