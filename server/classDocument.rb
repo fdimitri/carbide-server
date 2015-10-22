@@ -436,15 +436,16 @@ class Document < DocumentBase
   def do_insertDataSingleLine(client, jsonMsg)
     $Project.logMsg(LOG_FENTRY, "Called")
     begin
+      line = jsonMsg['insertDataSingleLine']['line']
+      odata = jsonMsg['insertDataSingleLine']['data']
+      data = odata.gsub("\n", "").gsub("\r", "")
+      char = jsonMsg['insertDataSingleLine']['ch'].to_i
+      length = data.length
       if (!odata.is_a?(String))
         $Project.logMsg(LOG_ERROR, "Data was not of type string, it has class: " + jsonMsg['insertDataSingleLine']['data'].class.to_s)
         return false
       end
-      line = jsonMsg['insertDataSingleLine']['line']
-      odata = jsonMsg['insertDataSingleLine']['data']
-      data = odata.sub("\n", "").sub("\r", "")
-      char = jsonMsg['insertDataSingleLine']['ch'].to_i
-      length = data.length
+      $Project.logMsg(LOG_INFO, "odata is: " + odata.gsub("\n", "\\n").gsub("\r","\\r"))
       # puts "YAML @data"
       # puts YAML.dump(@data)
       # puts "insertDataSingleLine(): Called #{jsonMsg}"
