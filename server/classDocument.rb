@@ -355,43 +355,74 @@ class Document < DocumentBase
     $Project.logMsg(LOG_FENTRY, "Called")
     $Project.logMsg(LOG_FPARAMS, "Client:\n" + YAML.dump(client))
     $Project.logMsg(LOG_FPARAMS, "jsonMsg:\n" + YAML.dump(jsonMsg))
-    begin
-    line = jsonMsg['insertDataSingleLine']['line'];
-    odata = jsonMsg['insertDataSingleLine']['data']
-    #data = odata.sub("\n", "").sub("\r", "")
-    char = jsonMsg['insertDataSingleLine']['ch'].to_i
-    length = data.length
+    jsonMsg['hash'] = 0xFF
+    insertDataSingleLineValidation = {
+      'hash' => {
+        'classNames' => 'String',
+        'reqBits' => VM_OPTIONAL | VM_STRICT,
+      },
+      'insertDataSingleLine' => {
+        'classNames' => 'Hash',
+        'reqBits' => VM_REQUIRED | VM_STRICT,
+        'subObjects' => {
+          'type' => {
+            'classNames' => 'String',
+            'reqBits' => VM_REQUIRED | VM_STRICT,
+            'matchExp' => '/.*/'
+          }
+          'ch' => {
+            'classNames' => [ 'String', 'FixNum' ],
+            'reqBits' => VM_REQUIRED | VM_STRICT,
+          }
+          'line' => {
+            'classNames' => [ 'String', 'FixNum' ],
+            'reqBits' => VM_REQUIRED | VM_STRICT,
+          }
+          'data' => {
+            'classNames' => 'String',
+            'reqBits' => VM_REQUIRED | VM_STRICT,
+            'matchExp' => '/.*/'
+          }
 
-    if (!data.is_a?(String))
-      $Project.logMsg(LOG_ERROR, "Input data was not of type string")
-      # NOTE: We need to return an error message to the client
-      puts data.inspect
+        }
+      }
+    }
+    vMsg = $Project.validateMsg(createTaskBoardValidation, msg)
+    if (!vMsg['status'])
+			$Project.logMsg(LOG_ERROR, "Unable to validate message")
+			$Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
+      $Project.generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'createTerminal')
       return false
     end
-    rval = do_insertDataSingleLine(client, jsonMsg)
-    if (!rval)
-      # NOTE: We need to return an error message to the client
-      return false
-    end
-    puts "Sending message to self :sendMsg_cInsertDataSingleLine.."
-  rescue Exception => e
-    puts "Failed!"
-    puts YAML.dump(e)
-    puts "Error: " + e.message
-    puts "Backtrace: " + e.backtrace
+		$Project.logMsg(LOG_INFO, "Message successfully validated")
+    begin
+      line = jsonMsg['insertDataSingleLine']['line'];
+      odata = jsonMsg['insertDataSingleLine']['data']
+      #data = odata.sub("\n", "").sub("\r", "")
+      char = jsonMsg['insertDataSingleLine']['ch'].to_i
+      length = data.length
+      rval = do_insertDataSingleLine(client, jsonMsg)
+      if (!rval)
+        $Project.logMsg(LOG_ERROR, "Failed to do_insertDataSingleLine")
+        # NOTE: We need to return an error message to the client
+        return false
+      end
 
-  end
+    rescue Exception => e
+      puts YAML.dump(e)
+      $Project.logMsg(LOG_ERROR, "We had an exception (Section 1)!")
+      $Project.logMsg(LOG_ERROR, YAML.dump(e))
+    end
 
     begin
-      puts YAML.dump(rval)
+      $Project.logMsg(LOG_INFO, "Sending message to self :sendMsg_cInsertDataSingleLine..")
+      $Project.logMsg(LOG_INFO | LOG_DEBUG | LOG_DUMP, YAML.dump(rval))
       params = rval['replyParams']
       self.send(:sendMsg_cInsertDataSingleLine, *params)
     rescue Exception => e
-      puts "Failed!"
       puts YAML.dump(e)
-      puts "Error: " + e.message
-      puts "Backtrace: " + e.backtrace
-
+      $Project.logMsg(LOG_ERROR, "We had an exception (Section 2)!")
+      $Project.logMsg(LOG_ERROR, YAML.dump(e))
     end
   end
 
@@ -462,7 +493,7 @@ class Document < DocumentBase
       return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
     rescue Exception => e
       $Project.logMsg(LOG_ERROR, "We had an exception!")
-      $Project.logMsg(LOG_ERROR, YAML.dump(e))
+      $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(e))
     end
   end
 

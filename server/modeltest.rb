@@ -298,10 +298,7 @@ class ProjectServer
 
   def procMsg_createTerminal(ws,msg)
 		$Project.logMsg(LOG_FENTRY, "Called")
-    hash = 0
-		if (!msg.has_key?('hash'))
-			msg['hash'] = hash
-		end
+		msg['hash'] = 0xFF
     createTerminalValidation = {
       'hash' => {
         'classNames' => 'String',
@@ -323,7 +320,7 @@ class ProjectServer
     if (!vMsg['status'])
 			$Project.logMsg(LOG_ERROR, "Unable to validate message")
 			$Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
-      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'createTerminal')
       return false
     end
 		$Project.logMsg(LOG_INFO, "Message successfully validated")
