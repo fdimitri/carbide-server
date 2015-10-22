@@ -57,7 +57,7 @@ class TerminalBase
 		if (@clients[ws])
 			return(@clients[ws])
 		elsif
-			puts "Invalid client with socket: #{ws}"
+			$Project.logMsg(LOG_ERROR, "Invalid client with socket: #{ws}")
 			return FALSE
 		end
 	end

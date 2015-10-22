@@ -39,11 +39,11 @@ class Client
 	end
 
 
-	def addTerm(term)
+	def addTerminal(term)
 		@terms[term] = term
 	end
 
-	def removeTerm(term)
+	def removeTerminal(term)
 		@terms.delete(term)
 	end
 

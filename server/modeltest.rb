@@ -844,7 +844,8 @@ class ProjectServer
 
 
 	def getTaskBoard(boardName)
-		puts "getTaskBoard called with #{boardName}"
+		$Project.logMsg(LOG_FENTRY, "Called")
+		$Project.logMsg(LOG_FPARAMS, "boardName: #{boardName}")
 		if (@taskBoards[boardName])
 			return @taskBoards[boardName];
 		end
@@ -853,10 +854,11 @@ class ProjectServer
 
 
 	def getClient(ws)
+		$Project.logMsg(LOG_FENTRY, "Called")
 		if (@clients[ws])
 			return(@clients[ws])
 		elsif
-			puts "Invalid client with socket: #{ws}"
+			$Project.logMsg(LOG_ERROR, "Invalid client with socket: #{ws}")
 			return FALSE
 		end
 	end
