@@ -40,7 +40,7 @@ class ChatChannel
 			return false
 		end
 		@clients[ws] = client
-		@clientPropagate = {
+		clientPropagate = {
 			'commandSet' => 'chat',
 			'command' => 'userJoin',
 			'userJoin' => {
@@ -49,10 +49,10 @@ class ChatChannel
 			},
 		}
 		puts "Propogate message: "
-		puts @clientPropagate.inspect
-		@clientString = @clientPropagate.to_json
-		sendToClients(@clientString)
-		@clientMessage = {
+		puts clientPropagate.inspect
+		clientString = clientPropagate.to_json
+		sendToClients(clientString)
+		clientMessage = {
 			'commandSet' => 'chat',
 			'command' => 'userList',
 			'userList' => {
@@ -60,13 +60,13 @@ class ChatChannel
 				'chat' => @roomName,
 			},
 		}
-		sendToClient(client, @clientMessage.to_json)
+		sendToClient(client, clientMessage.to_json)
 	end
 
 	def remClient(client)
 		client.removeChat(@roomName)
 		@clients.delete(client.websocket)
-		@roomMsg = {
+		roomMsg = {
 			'commandSet' => 'chat',
 			'command' => 'userLeave',
 			'userLeave' => {
@@ -74,8 +74,8 @@ class ChatChannel
 				'user' => client.name,
 			},
 		}
-		@clientString = @roomMsg.to_json
-		sendToClients(@clientString)
+		clientString = roomMsg.to_json
+		sendToClients(clientString)
 	end
 
 	def procMsg(client, jsonMsg)
@@ -93,7 +93,7 @@ class ChatChannel
 
 	def procMsg_sendMessage(client, jsonMsg)
 		puts "procMsg_sendMessage executing"
-		@clientReply = {
+		clientReply = {
 			'commandSet' => 'chat',
 			'commandReply' => true,
 			'command' => 'sendMessage',
@@ -101,9 +101,9 @@ class ChatChannel
 				'status' => TRUE,
 			},
 		}
-		@clientString = @clientReply.to_json
-		sendToClient(client, @clientString)
-		@clientPropagate = {
+		clientString = clientReply.to_json
+		sendToClient(client, clientString)
+		clientPropagate = {
 			'commandSet' => 'chat',
 			'command' => 'sendMessage',
 			'sendMessage' => {
@@ -113,9 +113,9 @@ class ChatChannel
 			},
 		}
 		puts "Propogate message: "
-		puts @clientPropagate.inspect
-		@clientString = @clientPropagate.to_json
-		sendToClients(@clientString)
+		puts clientPropagate.inspect
+		clientString = clientPropagate.to_json
+		sendToClients(clientString)
 
 	end
 
@@ -133,7 +133,7 @@ class ChatChannel
 
 	def procMsg_leaveChannel(client, jsonmsg)
 		remClient(client)
-		@clientReply = {
+		clientReply = {
 			'commandSet' => 'chat',
 			'commandReply' => true,
 			'command' => 'leaveChannel',
@@ -141,8 +141,8 @@ class ChatChannel
 				'status' => TRUE,
 			}
 		}
-		@clientString = @clientReply.to_json
-		sendToClient(client, @clientString)
+		clientString = clientReply.to_json
+		sendToClient(client, clientString)
 	end
 
 	def sendToClient(client, msg)

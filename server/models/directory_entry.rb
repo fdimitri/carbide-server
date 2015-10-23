@@ -29,19 +29,24 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
     data = jsonMsg['insertDataMultiLine']['data']
     startChar = jsonMsg['insertDataMultiLine']['startChar'].to_i
     length = data.length
-    FileChange.create(:changeType => "insertDataMultiLine", :changeData => YAML.dump(jsonMsg), :startLine => startLine, :startChar => startChar, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+    FileChange.create(:changeType => "insertDataMultiLine", :changeData => (jsonMsg.to_json), :startLine => startLine, :startChar => startChar, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
   end
 
   def recvMsg_insertDataSingleLine(client, jsonMsg)
+    $Project.logMsg(LOG_FENTRY, "Entered function")
+    $Project.logMsg(LOG_FPARAMS, "client: " + YAML.dump(client))
+    $Project.logMsg(LOG_FPARAMS, "jsonMsg: " + YAML.dump(jsonMsg))
     line = jsonMsg['insertDataSingleLine']['line'];
     odata = jsonMsg['insertDataSingleLine']['data']
-    data = odata.sub("\n", "").sub("\r", "")
+    data = odata.sub("\r", "")
     char = jsonMsg['insertDataSingleLine']['ch'].to_i
     if (!data.is_a?(String))
+      $Project.logMsg(LOG_ERROR, "Data was not a string, it was: " + data.class.to_s)
+      $Project.logMsg(LOG_ERROR | LOG_VERBOSE | LOG_DEBUG | LOG_DUMP, "Data dump: " + YAML.dump(data))
       return false
     end
     length = data.length
-    FileChange.create(:changeType => "insertDataSingleLine", :changeData => YAML.dump(jsonMsg), :startLine => line, :startChar => char, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+    FileChange.create(:changeType => "insertDataSingleLine", :changeData => (jsonMsg.to_json), :startLine => line, :startChar => char, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
   end
 
   def recvMsg_deleteDataSingleLine(client, jsonMsg)
@@ -49,7 +54,7 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
     data = jsonMsg['deleteDataSingleLine']['data'].to_s
     char = jsonMsg['deleteDataSingleLine']['ch'].to_i
     length = data.length
-    FileChange.create(:changeType => "deleteDataSingleLine", :changeData => YAML.dump(jsonMsg), :startLine => line, :startChar => char, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+    FileChange.create(:changeType => "deleteDataSingleLine", :changeData => (jsonMsg.to_json), :startLine => line, :startChar => char, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
   end
 
   def recvMsg_deleteDataMultiLine(client, jsonMsg)
@@ -59,7 +64,7 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
     endChar = ml['endChar'].to_i
     endLine = ml['endLine'].to_i
     lineData = ml['data']
-    FileChange.create(:changeType => "deleteDataMultiLine", :changeData => YAML.dump(jsonMsg), :startLine => startLine, :startChar => startChar, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
+    FileChange.create(:changeType => "deleteDataMultiLine", :changeData => (jsonMsg.to_json), :startLine => startLine, :startChar => startChar, :DirectoryEntry_id => self.id, :revision => self.filechanges.count, :User_id => client.userId)
   end
 
   def getDocument()
@@ -75,47 +80,94 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
   end
 
   def getMD5Hash(data)
-    if (data.is_a? String)
+    if (data.is_a?(String))
+      #Return the hex-ified digest, base64 would be better
       digest = OpenSSL::Digest::MD5.hexdigest(data)
       return digest
     end
-    puts "Data passed to us for hashing was not a string, we could use .to_s, to_json, or even YAML.dump in this case -- to be determined"
+    $Project.logMsg(LOG_ERROR, "Data passed to me was not a string, try using .to_s, .inspect, .to_json, or YAML.dump() to get a hash")
     return false
   end
 
   def getPrivateDocument()
+    $Project.logMsg(LOG_FENTRY, "Entered function")
     time = Time.new
-
     docName = getMD5Hash(self.curName + time.usec.to_s + Time.now.to_s)
+    $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "Instantiating new Document with docName: #{docName} based off of MD5-Hash #{self.curName} with a nonce")
     document = Document.new(nil, docName, '/', self)
+    $Project.logMsg(LOG_FENTRY, "Leaving function, TRUE, returning instantiated document")
     return document
   end
 
 
-  def calcCurrent
+  def calcCurrent()
+    $Project.logMsg(LOG_FENTRY, "Entered function, operating on #{self.curName} #{self.id}")
+    $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, "Information about myself: " + YAML.dump(self))
     #This function takes us from revision 0 to current, we have no "key frames", but those will be added in the future to reduce processing time
     document = getPrivateDocument()
+    $Project.logMsg(LOG_DEBUG, "Got a private document, processing self.filechanges.each")
     self.filechanges.each do |change|
+      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "Processing respond_to?s for a change: " + change.changeType)
+      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, YAML.dump(change))
       if (self.respond_to?("cmd_" + change.changeType))
+	    $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "self.cmd_ exists for this change, calling it -- we will NOT call document.do_ directly in this case")
         self.send("cmd_" + change.changeType, document, change)
+        execCmd = true
       else
+	    $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "self.cmd_ does not exist, checking self.pre_ and document.do_")
         if (self.respond_to?("pre_" + change.changeType))
+          execCmd = true
+          $Project.logMsg(LOG_DEBUG | LOG_VERYVERBOSE, "self.pre_ exists for this change, calling it")
           self.send("pre_" + change.changeType, document, change)
         end
         if (document.respond_to?("do_" + change.changeType))
-          document.send("do_" + change.changeType, nil, YAML.load(change.changeData))
+          execCmd = true
+	      $Project.logMsg(LOG_DEBUG | LOG_VERYVERBOSE, "document.do__ exists for this change, calling it")
+	      if (change.changeData.is_json?)
+	        document.send("do_" + change.changeType, nil, JSON.parse(change.changeData, :quirks_mode => true))
+	      else
+	        document.send("do_" + change.changeType, nil, change.changeData)
+	      end
         end
       end
+      $Project.logMsg(LOG_DEBUG | LOG_INFO, "Document length is: " + document.getContents().length.to_s + " and number of lines is: " + document.getContents().split("\n").length.to_s)
     end
+    $Project.logMsg(LOG_DEBUG, "Done processing changes")
+    $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "Calling document.getContents() so we can return the data")
     contents = document.getContents()
     document = nil
-    puts "calcCurrent gave me an " + contents.length.to_s  + " byte document"
+    $Project.logMsg(LOG_FRETURN, "Returning with a " + contents.length.to_s + " byte document with " + contents.split("\n").length.to_s + " lines")
+    $Project.logMsg(LOG_FRPARAM, contents)
     return({:data => contents})
   end
 
   def cmd_setContents(document, change)
+    $Project.logMsg(LOG_FENTRY, "Entering function")
+    $Project.logMsg(LOG_FPARAMS, "Document: " + YAML.dump(document))
+    $Project.logMsg(LOG_FPARAMS, "Change: " + YAML.dump(change))
+    if (!change.changeData.is_a?(String)) 
+      $Project.logMsg(LOG_ERROR, "Passed incorrectly formatted changeData -- should be a string but it isn't")
+      $Project.logMsg(LOG_ERROR | LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, YAML.dump(change))
+      $Project.logMsg(LOG_ERROR | LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, change.inspect.to_s)
+      document.setContents('SEVERE ERROR!! PASSED INCORRECT CHANGEDATA!')
+      return false
+    end
     data = change.changeData
-    document.setContents(YAML.load(data))
+    if (false && data.is_json?)
+      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "Setting to JSON.parse(data): " + YAML.dump(JSON.parse(data)))
+      document.setContents((JSON.parse(data).split("\n")))
+    else
+      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, "Setting to raw data: " + YAML.dump(data))
+      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "Data is a " + data.class.to_s)
+      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, "Inspected data: " + data.inspect.to_s)
+      #data = data[1..-2].split("\n")
+      if (data.include?("\n"))
+	data = data.split("\n")
+      else
+        data = [ data ]
+      end
+      document.setContents(data)
+    end
     return true
   end
 
@@ -163,7 +215,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       puts "getNewestEntry(): Returning result:"
       puts YAML.dump(res)
     rescue Exception => e
-      puts "Caught error.. #{e.type} with message of #{e.message}"
+      $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
       return(false)
     end
     return(res.updated_at)
@@ -181,6 +233,8 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
   end
 
   def getDirArray(dirName)
+    $Project.logMsg(LOG_FENTRY, "Entered function")
+    $Project.logMsg(LOG_FPARAMS, "Called with dirName: #{dirName}")
     rere = dirName.split(/(?<=[\/])/)
     #rere = dirName.split(/\//)
     #rere = rere[1..(rere.length - 1)].map {|s| s = s.gsub('/','')}
@@ -189,20 +243,26 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     if (!rere || !rere.length)
       rere = ['/']
     end
-    puts "rere: "  + rere.inspect.to_s
-    puts YAML.dump(rere)
     #rere.map {|s| puts s.inspect }
+    $Project.logMsg(LOG_FRETURN, "Exiting function, returning array of directories")
+    $Project.logMsg(LOG_FRPARAM, rere.inspect)
     return rere
   end
 
   def dirExists(dirList)
+    $Project.logMsg(LOG_FENTRY, "Entered function")
+    $Project.logMsg(LOG_FPARAMS, "dirList: " + dirList.inspect)
+    $Project.logMsg(LOG_INFO, "Waiting for dirMutex..")
     @dirMutex.synchronize {
-      return(dirExistsBase(dirList))
+      deb = dirExistsBase(dirList)
+      $Project.logMsg(LOG_FRETURN, "Exiting function with return value from dirExistsBase()")
+      return(deb)
     }
   end
 
 
   def dirExistsBase(dirList)
+    $Project.logMsg(LOG_FENTRY, "Entered function")
     if (dirList.length == 1 && dirList[0] == '/')
       # The root directory always exists! Theoretically.
       return {:lastDir => getRootDirectory() }
@@ -210,6 +270,8 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     if (dirList.length == 0)
       # No length could happen with some older versions of FileTree, we'll
       # keep it just in case.
+      $Project.logMsg(LOG_WARN, "dirList.length was 0")
+      $Project.logMsg(LOG_FRETURN, "Returning root directory")
       return {:lastDir => getRootDirectory() }
     end
     existingDirectories = dirList;
@@ -224,14 +286,22 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     end
 
     if (exDir = DirectoryEntry.find_by_srcpath(srcPath))
-      #puts "Found by srcPath!"
+      $Project.logMsg(LOG_INFO | LOG_VERBOSE, "Found #{srcPath} by srcPath in the database!")
+      $Project.logMsg(LOG_FRETURN, "Exiting function, returning directory information");
+      $Project.logMsg(LOG_FRPARAM, "Return value: " + YAML.dump({:lastDir => exDir}));
       return{:lastDir => exDir}
     end
-
+    $Project.logMsg(LOG_INFO | LOG_VERBOSE, "Unable to find directory #{srcPath} in the database")
+    $Project.logMsg(LOG_FRETURN, "Exiting function, returning false")
+    $Project.logMsg(LOG_FRPARAM, false)
     return(false)
   end
 
   def fileExists(srcPath)
+    if ($Project)
+      $Project.logMsg(LOG_FENTRY, "Entered function")
+      $Project.logMsg(LOG_FPARAMS, "srcPath: #{srcPath}")
+    end
     if (srcPath[0] != '/')
       srcPath = '/' + srcPath
     end
@@ -239,8 +309,13 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       srcPath = srcPath[0..(srcPath.length - 2)]
     end
     if (exDir = DirectoryEntry.find_by_srcpath(srcPath))
-      #puts "Found by srcPath!"
+      if ($Project)
+        $Project.logMsg(LOG_FRETURN, "Found file by srcPath #{srcPath} in database!")
+      end
       return{:lastDir => exDir}
+    end
+    if ($Project)
+      $Project.logMsg(LOG_FRETURN, "Found no file by the name of #{srcPath} in database")
     end
     return(false)
   end
@@ -319,38 +394,61 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       else
         clientErrors << "File already exists"
       end
+    rescue Exception => e
+      $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
+      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(caller))
+      $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
+exit
+      return
+    end
 
       if (x)
         # The file already exists in the db-- this is normal if we did a filesystem scan
         # on a second server boot, etc
-        #puts "We have recorded " + x.filechanges.count.to_s + " filechanges to #{fileName}"
+	$Project.logMsg(LOG_INFO | LOG_DEBUG, "We have recorded " + x.filechanges.count.to_s + " filechanges to #{fileName}")
         if (data)
-          puts "We were called with data, only setting data if filechanges.count == 0"
+          $Project.logMsg(LOG_INFO | LOG_DEBUG, "We were called with data, only setting data if filechanges.count == 0")
         end
+    begin
         if ((x.filechanges.count == 0) && data)
           # This file had no data before, but has been seen.. it has 0 changes made to it, so we just load it from disk with "setContents" as our command
           # All of the changeTypes will directly correlate to existing C->S API calls
-          puts "Filechange.create setContents data since x.filechanges.count == 0"
+          $Project.logMsg(LOG_INFO | LOG_DEBUG, "Filechange.create setContents data since x.filechanges.count == 0")
           if (userId == nil)
             userId = 1
           end
-          FileChange.create(:changeType => "setContents", :changeData => YAML.dump(data), :startLine => 0, :startChar => 0, :DirectoryEntry_id => x.id, :revision => 0, :User_id => userId)
+	  $Project.logMsg(LOG_INFO | LOG_DEBUG, "Calling FileChange.create");
+	  $Project.logMsg(LOG_DEBUG | LOG_DUMP, "JSON data:" + ((data.encode('UTF-8', invalid: :replace, undef: :replace, replace: ''))).to_s);
+          FileChange.create(:changeType => "setContents", :changeData => ((data.encode('UTF-8', invalid: :replace, undef: :replace, replace: ''))), :startLine => 0, :startChar => 0, :DirectoryEntry_id => x.id, :revision => 0, :User_id => userId)
         elsif (x.filechanges.count > 0)
           # The database takes priority over the filesystem, although we may change this once we have a diff system in (so filesystem modifications affect the database)
-          puts "Current filechanges.count: " + x.filechanges.count.to_s
-          puts "Caling x.calcCurrent()"
+	  $Project.logMsg(LOG_INFO, "Current filechanges.count: " + x.filechanges.count.to_s)
           rval = x.calcCurrent()
-          data = rval[:data]
-          puts "Taking calcCurrent() and setting data to it"
-        end
-      end
+	  $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "calcCurrent gave us:")
+	  $Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(rval))
 
+	  $Project.logMsg(LOG_INFO, "Setting data to rval[:data] from calcCurrent()")
+          data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
+	  rval = nil
+        end
+
+    rescue Exception => e
+      $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
+      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(caller))
+      $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
+exit
+      return
+    end
+      end
+	
+    begin
+	
       if (!@Project.getDocument(fileName))
         puts "@Project.addDocument(fileName, x)"
         doc = @Project.addDocument(fileName, x)
       end
 
-      if (data && data.is_a?(String))
+      if (data && (data.is_a?(String) || data.is_a?(Array)))
         puts "Calling getDocument/setContents"
         doc = @Project.getDocument(fileName)
         doc.setContents(data)
@@ -377,8 +475,10 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
 
       return true
     rescue Exception => e
-      puts "Caught error.."
-      puts YAML.dump(e)
+      $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
+      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(caller))
+      $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
+exit
       return
     end
   end
@@ -572,7 +672,7 @@ class FileTreeX < DirectoryEntryHelper
         end
       end
     rescue Exception => e
-      puts "Caught error.. #{e.type} with message of #{e.message}"
+      $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
       return(false)
     end
 
@@ -588,7 +688,7 @@ class FileTreeX < DirectoryEntryHelper
       puts "jsonTree(): Not root, returning without flattening.."
       return(jsonString)
     rescue Exception => e
-      puts "Caught error.. #{e.type} with message of #{e.message}"
+      $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
       return(false)
     end
   end
@@ -605,7 +705,7 @@ class FileTreeX < DirectoryEntryHelper
 
       return("ft" + tprepend + type + "--" + digest + "--" + tappend)
     rescue Exception => e
-      puts "Caught error.. #{e.type} with message of #{e.message}"
+      $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
     end
 
   end
@@ -727,8 +827,8 @@ class FileTreeX < DirectoryEntryHelper
       @Project.sendToClientsExcept(client, broadcastReply.to_json)
       puts "procMsg_createFile() exit"
     rescue Exception => e
-      puts YAML.dump(e)
-      puts "Caught error.. #{e.type} with message of #{e.message}"
+      
+      $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
       return(false)
     end
   end
@@ -826,8 +926,8 @@ class FileTreeX < DirectoryEntryHelper
       @Project.sendToClientsExcept(client, broadcastReply.to_json)
       puts "procMsg_createDirectory()) exit"
     rescue Exception => e
-      puts YAML.dump(e)
-      puts "Caught error.. #{e.type} with message of #{e.message}"
+      
+      $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
       return(false)
     end
     return(true)

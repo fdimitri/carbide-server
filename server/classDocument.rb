@@ -31,7 +31,7 @@ class DocumentBase
   end
 
   def getContents
-    data = @data.join("\n").force_encoding('ISO-8859-1').encode('utf-8')
+    data = @data.join("\n").encode('UTF-8', invalid: :replace, undef: :replace, replace: '@')
     return data
   end
 
@@ -76,7 +76,7 @@ class DocumentBase
 
   def writeToFS(thread=false)
     #disable this for now
-    return false
+    #return false
     newTime = File.mtime(@baseDirectory + @name)
     if (newTime != @fsTimeStamp)
       puts "WARNING: Attempting to overwrite file " + @baseDirectory + @name
@@ -86,8 +86,12 @@ class DocumentBase
       puts "Excellent, file has NOT changed since we read it!"
     end
 
-    fd = File.open(@baseDirectory + @name, "wb");
+    if (!File.exist?(@baseDirectory + @name))
+      $Project.logMsg(LOG_ERROR, "Unable to open file for writing -- doesn't exist")
+      return FALSE
+    end
 
+    fd = File.open(@baseDirectory + @name, "wb");
     if (!fd)
       puts "Failed to open file #{@name}"
       if (thread)
@@ -106,11 +110,19 @@ class DocumentBase
 
 
   def setContents(data)
+    $Project.logMsg(LOG_FENTRY, "Entering function .. data is of class " + data.class.to_s)
+    $Project.logMsg(LOG_FPARAMS, "Data: " + YAML.dump(data))
     if (data.is_a?(String))
-      @data = data.split(/\n/)
+      data = data.gsub("\r\n","\n").gsub("\r","")
+      @data = data.split("\n")
+    elsif (data.is_a?(Array))
+      if (data.length == 1)
+        @data = data.first.split("\n")
+      else
+        @data = data
+      end
     else
-      puts "Document::setContents(): Data was not a string!?"
-      puts YAML.dump(data)
+      puts "Document::setContents(): Data was not a string or array!?"
     end
   end
 
@@ -174,13 +186,13 @@ class Document < DocumentBase
       if (d.is_a?(String))
         d = d.sub("\n","").sub("\r","")
       else
-        puts "Document::procMsg_getContents ran into an error with the data array -- element is not a string"
-        puts YAML.dump(d)
+        $Project.logMsg(LOG_ERROR, "Ran into an error with the data array -- element is not a string. Type is: " + d.class.to_s)
+        $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(d));
       end
     }
     begin
       puts "procMsg_getContents(): Creating client reply.."
-      @clientReply = {
+      clientReply = {
         'commandSet' => 'document',
         'command' => 'documentSetContents',
         'targetDocument' => @name,
@@ -188,7 +200,7 @@ class Document < DocumentBase
           'documentRevision' => @revision,
           'numLines' => @data.length,
           'docHash' => getHash(@revision),
-          'data' => @data.join("\n").encode('utf-8'),
+          'data' => @data.join("\n").encode('UTF-8', invalid: :replace, undef: :replace, replace: '@'),
           'document' => @name,
         }
       }
@@ -200,15 +212,15 @@ class Document < DocumentBase
     end
 
     puts "procMsg_getContents(): Sending client reply.."
-    @clientString = @clientReply.to_json
-    @project.sendToClient(client, @clientString)
+    clientString = clientReply.to_json
+    @project.sendToClient(client, clientString)
     puts "getContents(): Called #{jsonMsg}"
     puts "Returning:"
-    puts @clientReply
+    puts clientReply
   end
 
   def procMsg_getInfo(client, jsonMsg)
-    @clientReply = {
+    clientReply = {
       'replyType' => 'reply_getInfo',
       'documentInfo' => {
         'documentRevision' => @revision,
@@ -216,15 +228,15 @@ class Document < DocumentBase
         'docHash' => getHash(@revision),
       }
     }
-    @clientString = @clientReply.to_json
-    @project.sendToClient(client, @clientString)
+    clientString = clientReply.to_json
+    @project.sendToClient(client, clientString)
     puts "getInfo(): Called #{jsonMsg}"
     puts "Returning:"
-    puts @clientReply
+    puts clientReply
   end
 
   def sendMsg_cInsertDataSingleLine(client, document, line, data, char, length, ldata)
-    @clientReply = {
+    clientReply = {
       'commandSet' => 'document',
       'command' => 'insertDataSingleLine',
       'targetDocument' => document,
@@ -239,13 +251,13 @@ class Document < DocumentBase
       },
       #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
     }
-    @clientString = @clientReply.to_json
-    @clientReply['insertDataSingleLine']['hash'] = getMD5Hash(@clientString)
-    @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
+    clientString = clientReply.to_json
+    clientReply['insertDataSingleLine']['hash'] = getMD5Hash(clientString)
+    @project.sendToClientsListeningExceptWS(client.websocket, document, clientString)
   end
 
   def sendMsg_cDeleteDataSingleLine(client, document, line, data, char, length, ldata)
-    @clientReply = {
+    clientReply = {
       'commandSet' => 'document',
       'command' => 'deleteDataSingleLine',
       'targetDocument' => document,
@@ -262,13 +274,13 @@ class Document < DocumentBase
       },
       #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
     }
-    @clientString = @clientReply.to_json
-    @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
+    clientString = clientReply.to_json
+    @project.sendToClientsListeningExceptWS(client.websocket, document, clientString)
 
   end
 
   def sendMsg_cInsertDataMultiLine(client, document, startLine, startChar, length, data)
-    @clientReply = {
+    clientReply = {
       'commandSet' => 'document',
       'command' => 'insertDataMultiLine',
       'targetDocument' => name,
@@ -284,8 +296,8 @@ class Document < DocumentBase
       },
       #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
     }
-    @clientString = @clientReply.to_json
-    @project.sendToClientsListeningExceptWS(client.websocket, document, @clientString)
+    clientString = clientReply.to_json
+    @project.sendToClientsListeningExceptWS(client.websocket, document, clientString)
   end
 
   def procMsg_insertDataMultiLine(client, jsonMsg)
@@ -340,66 +352,122 @@ class Document < DocumentBase
 
 
   def procMsg_insertDataSingleLine(client, jsonMsg)
-    line = jsonMsg['insertDataSingleLine']['line'];
-    odata = jsonMsg['insertDataSingleLine']['data']
-    data = odata.sub("\n", "").sub("\r", "")
-    char = jsonMsg['insertDataSingleLine']['ch'].to_i
-    length = data.length
-
-    if (!data.is_a?(String))
-      puts "Data was not of type string"
-      puts data.inspect
-      return false
-    end
-    rval = do_insertDataSingleLine(client, jsonMsg)
-    if (!rval)
-      return false
-    end
-    puts "Sending message to self :sendMsg_cInsertDataSingleLine.."
+    $Project.logMsg(LOG_FENTRY, "Called")
     begin
-      puts YAML.dump(rval)
+      $Project.logMsg(LOG_FPARAMS, "Client:\n" + YAML.dump(client))
+      $Project.logMsg(LOG_FPARAMS, "jsonMsg type: #{jsonMsg.class.to_s}, dump:\n" + YAML.dump(jsonMsg))
+      jsonMsg['hash'] = 0xFF
+      hash = 0xFF
+      insertDataSingleLineValidation = {
+        'hash' => {
+          'classNames' => 'String',
+          'reqBits' => VM_OPTIONAL | VM_STRICT,
+        },
+        'insertDataSingleLine' => {
+          'classNames' => 'Hash',
+          'reqBits' => VM_REQUIRED | VM_STRICT,
+          'subObjects' => {
+            'type' => {
+              'classNames' => 'String',
+              'reqBits' => VM_REQUIRED | VM_STRICT,
+              'matchExp' => '/.*/'
+            },
+            'ch' => {
+              'classNames' => [ 'String', 'FixNum' ],
+              'reqBits' => VM_REQUIRED | VM_STRICT,
+            },
+            'line' => {
+              'classNames' => [ 'String', 'FixNum' ],
+              'reqBits' => VM_REQUIRED | VM_STRICT,
+            },
+            'data' => {
+              'classNames' => 'String',
+              'reqBits' => VM_REQUIRED | VM_STRICT,
+              'matchExp' => '/.*/'
+            },
+          }
+        }
+      }
+      vMsg = $Project.validateMsg(insertDataSingleLineValidation, jsonMsg)
+      if (!vMsg['status'])
+        $Project.logMsg(LOG_ERROR, "Unable to validate message")
+        $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
+        $Project.generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'createTerminal')
+        return false
+      end
+      $Project.logMsg(LOG_INFO, "Message successfully validated")
+    rescue Exception => e
+      puts YAML.dump(e)
+      $Project.logMsg(LOG_ERROR, "We had an exception (Section 0x00)!")
+      $Project.logMsg(LOG_ERROR, YAML.dump(e))
+    end
+
+    begin
+      line = jsonMsg['insertDataSingleLine']['line'];
+      odata = jsonMsg['insertDataSingleLine']['data']
+      data = odata.sub("\n", "").sub("\r", "")
+      char = jsonMsg['insertDataSingleLine']['ch'].to_i
+      length = data.length
+      rval = do_insertDataSingleLine(client, jsonMsg)
+      if (!rval)
+        $Project.logMsg(LOG_ERROR, "Failed to do_insertDataSingleLine")
+        # NOTE: We need to return an error message to the client
+        return false
+      end
+
+    rescue Exception => e
+      puts YAML.dump(e)
+      $Project.logMsg(LOG_ERROR, "We had an exception (Section 1)!")
+      $Project.logMsg(LOG_ERROR, YAML.dump(e))
+    end
+
+    begin
+      $Project.logMsg(LOG_INFO, "Sending message to self :sendMsg_cInsertDataSingleLine..")
+      $Project.logMsg(LOG_INFO | LOG_DEBUG | LOG_DUMP, YAML.dump(rval))
       params = rval['replyParams']
       self.send(:sendMsg_cInsertDataSingleLine, *params)
     rescue Exception => e
-      puts "Failed!"
       puts YAML.dump(e)
-      puts "Error: " + e.message
-      puts "Backtrace: " + e.backtrace
-
+      $Project.logMsg(LOG_ERROR, "We had an exception (Section 2)!")
+      $Project.logMsg(LOG_ERROR, YAML.dump(e))
     end
   end
 
   def do_insertDataSingleLine(client, jsonMsg)
-    line = jsonMsg['insertDataSingleLine']['line'];
-    odata = jsonMsg['insertDataSingleLine']['data']
-    data = odata.sub("\n", "").sub("\r", "")
-    char = jsonMsg['insertDataSingleLine']['ch'].to_i
-    length = data.length
-    if (!data.is_a?(String))
-      puts "Data was not of type string"
-      puts data.inspect
-      return false
-    end
-
-    # puts "YAML @data"
-    # puts YAML.dump(@data)
-    # puts "insertDataSingleLine(): Called #{jsonMsg}"
-    # puts "Odata is: " + odata.inspect
-    if ((odata == "\n" || odata == '\n'))
-      if (char == 0)
-        @data.insert(line, "")
-        return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
-      else
+    $Project.logMsg(LOG_FENTRY, "Called")
+    begin
+      line = jsonMsg['insertDataSingleLine']['line']
+      odata = jsonMsg['insertDataSingleLine']['data']
+      data = odata.gsub("\n", "").gsub("\r", "")
+      char = jsonMsg['insertDataSingleLine']['ch'].to_i
+      length = data.length
+      if (!odata.is_a?(String))
+        $Project.logMsg(LOG_ERROR, "Data was not of type string, it has class: " + jsonMsg['insertDataSingleLine']['data'].class.to_s)
+        return false
+      end
+      $Project.logMsg(LOG_INFO, "odata is: " + odata.gsub("\n", "\\n").gsub("\r","\\r").inspect)
+      # puts "YAML @data"
+      # puts YAML.dump(@data)
+      # puts "insertDataSingleLine(): Called #{jsonMsg}"
+      # puts "Odata is: " + odata.inspect
+      if ((odata == "\n" || odata == "\r\n" || odata == "\r"))
+        $Project.logMsg(LOG_INFO, "odata was \\n, \\r\\n, or \\r")
+        if (char == 0)
+          # Beginning of line, just insert a new line
+          @data.insert(line, "")
+          return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
+        end
         myStr = @data.fetch(line)
-        if (!myStr)
+        if (!myStr || !myStr.length)
+          # There was no data on the line
           # puts "There was no existing data, just insert lines"
-          myStr = ""
-          @data.insert(line, myStr)
-          @data.insert(line+1, myStr)
+          @data.insert(line, "")
+          #@data.insert(line+1, myStr) #I think this is incorrect
           # puts "YAML @data"
           # puts YAML.dump(@data)
           return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
-        else
+        end
+        if (myStr && myStr.length)
           begStr = myStr[0..(char - 1)]
           endStr = myStr[(char)..-1]
           # puts "endStr is " + endStr.inspect
@@ -424,14 +492,17 @@ class Document < DocumentBase
           return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
         end
       end
-    end
 
-    if (@data[line].nil?)
-      @data.insert(line, data.to_str);
-    else
-      appendToLine(line, char, data)
+      if (@data[line].nil?)
+        @data.insert(line, data.to_str);
+      else
+        appendToLine(line, char, data)
+      end
+      return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
+    rescue Exception => e
+      $Project.logMsg(LOG_ERROR, "We had an exception!")
+      $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(e))
     end
-    return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
   end
 
   def appendToLine(line, char, data)
@@ -446,7 +517,6 @@ class Document < DocumentBase
         str.insert(a, " ")
         a += 1
       end
-      puts "#{str.length} is less than #{char}.. this may crash"
     end
     str.insert(char, data)
     @data.fetch(line, str)
@@ -564,16 +634,5 @@ class Document < DocumentBase
       #client.sendMsg_Fail('deleteDataSingleLine');
       return false
     end
-
   end
-
-  def procMsg_insertLine(client, jsonMsg)
-  end
-
-  def procMsg_deleteLine(client, jsonMsg)
-  end
-
-  def procMsg_deleteMultiLine(client, jsonMsg)
-  end
-
 end

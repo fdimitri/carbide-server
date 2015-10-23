@@ -1,7 +1,52 @@
 require 'webrick'
 require 'yaml'
+require 'rubygems'
+require 'rubygems/package'
+require 'zlib'
+require 'fileutils'
 
-class UploadBase < WEBrick::HTTPServlet::AbstractServlet
+class CommonBase < WEBrick::HTTPServlet::AbstractServlet
+  def gzipContent(content)
+    puts "Enter CommonBase::gzipContent"
+    gzipOut = StringIO.new("")
+    puts "Call GzipWriter to our empty StringIO"
+    z = Zlib::GzipWriter.new(gzipOut)
+    puts "z.write the data"
+    z.write content.string
+    z.close
+    puts "Closed GzipWriter, return StringIO.new(compressedContent)"
+    StringIO.new(gzipOut.string)
+  end
+
+  def tarDirectory(path)
+    puts "Enter CommonBase::tarDirectory"
+    tarfile = StringIO.new("")
+    puts "TarWriter.new(tarfile) loop"
+    Gem::Package::TarWriter.new(tarfile) do |tar|
+      Dir[File.join(path, "**/*")].each do |file|
+        mode = File.stat(file).mode
+        relative_file = file.sub /^#{Regexp::escape path}\/?/, ''
+
+        if File.directory?(file)
+          tar.mkdir relative_file, mode
+        else
+          tar.add_file relative_file, mode do |tf|
+            File.open(file, "rb") { |f| tf.write f.read }
+          end
+        end
+      end
+    end
+
+    tarfile.rewind
+    tarfile
+  end
+
+  def getTarGZipped(fileName)
+    memoryTar = tarDirectory(fileName)
+    gZippedContent = gzipContent(memoryTar)
+    gZippedContent
+  end
+
   def getParams(request)
     rq = request.query()
     params = Hash.new;
@@ -19,7 +64,9 @@ class UploadBase < WEBrick::HTTPServlet::AbstractServlet
     # end
     return params
   end
+end
 
+class UploadBase < CommonBase
   def do_GET(request, response)
     response['Access-Control-Allow-Origin'] = "*"
     response['Accept-Encoding'] = "gzip"
@@ -204,14 +251,60 @@ class UploadFile < UploadBase
     @baseDirectory = dlDir
     puts "Initialize UploadBase End"
   end
+end
 
+class DownloadBase < CommonBase
+  def do_GET(request, response)
+    response['Access-Control-Allow-Origin'] = "*"
+    response['Accept-Encoding'] = "gzip"
 
+    params = getParams(request);
+    #params = request['request_uri']
+    #chunk folder path based on the parameters
+
+    fileName = File.expand_path("#{@tempDir}/#{params['srcPath']}")
+
+    if File.exists?(fileName)
+      if (File.directory?(fileName))
+        response.status = 200
+        response['Content-Type'] = 'application/x-tar'
+        response['Content-Encoding'] = 'x-gzip'
+        response['Content-Disposition'] = 'attachment; filename="' + params['srcPath'] + '.tar.gz"'
+        response.body = getTarGZipped(fileName).string
+        return true
+      end
+      #Let flow.js know this chunk already exists
+      response.status = 200
+      response['Content-Type'] = 'text/plain'
+      fileDesc = File.open(fileName)
+      response.body = fileDesc.read()
+    else
+      #Let flow.js know this chunk doesnt exists and needs to be uploaded
+      response.status = 404
+      response['Content-Type'] = 'text/plain'
+      response.body = "The document you're looking for does not exist!"
+    end
+    fileDesc.close()
+  end
+end
+
+class DownloadFile < DownloadBase
+  def initialize(server, tempDir, dlDir, webServer)
+    puts "Initialize DownloadBase"
+    super server
+    @tempDir = tempDir
+    @dlDir = tempDir
+    @WebServer = webServer
+    @baseDirectory = dlDir
+    puts "Initialize DownloadBase End"
+  end
 end
 
 
 class WebServer
   attr_accessor :Project
-  def initialize (port, root)
+
+  def initialize (bindAddress, serverName, port, root)
     @port = port
     @root = root
     access_log = [
@@ -220,12 +313,15 @@ class WebServer
       [$stdout, WEBrick::AccessLog::COMBINED_LOG_FORMAT],
     ]
     @root = File.expand_path(root)
-    @server = WEBrick::HTTPServer.new(:Port => port, :DocumentRoot => @root, :BindAddress => "0.0.0.0", :AccessLog => access_log, :ServerName => "172.17.0.42:#{port}")
+    @server = WEBrick::HTTPServer.new(:Port => port, :DocumentRoot => @root, :BindAddress => bindAddress, :AccessLog => access_log, :ServerName => "#{serverName}:#{port}")
     trap 'INT' do
       puts "Received INT.. shutting down server"
       @server.shutdown
     end
-    a = @server.mount '/upload', UploadFile, @root + "/uploads", @root, self
+    upload = @server.mount '/upload', UploadFile, @root + "/uploads", @root, self
+    download = @server.mount '/download', DownloadFile, @root, @root, @self
+    @baseURL = "http://#{serverName}:#{port}"
+    return true
   end
 
   def registerProject(project)
@@ -234,6 +330,10 @@ class WebServer
 
   def start()
     res = @server.start
+  end
+
+  def getBaseURL()
+    return(@baseURL)
   end
 
 

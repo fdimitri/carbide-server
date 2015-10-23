@@ -32,7 +32,15 @@ class FileChange < ActiveRecord::Base
     puts "FileChange::create(): Call new(params)"
     fileChange = FileChange.new(params)
     puts "FileChange::create(): Call save!"
-    fileChange.save!
+begin
+while (!fileChange.save!) do
+puts "Unable to fileChange.save.."
+end
+rescue Exception => e
+puts "!!!!!! fileChange.save error !!!!!!"
+puts YAML.dump(e)
+end
+
     puts "FileChange::create(): save! called, returning fileChange entry.."
     #puts YAML.dump(fileChange)
     #puts YAML.dump(fileChange.methods)

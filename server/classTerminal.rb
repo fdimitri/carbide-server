@@ -9,13 +9,18 @@ class TerminalBase
 	attr_accessor	:termName
 
 	def initialize(project, termName)
+		$Project.logMsg(LOG_FENTRY, "Entering function")
+		$Project.logMsg(LOG_FPARAMS, "project:" + YAML.dump(project))
+		$Project.logMsg(LOG_FPARAMS, "termName: #{termName}")
 		@project = project
 		@termName = termName
 		@clients = { }
 		@sizes = { }
-		puts "Terminal term #{termName} initialized"
+		$Project.logMsg(LOG_INFO, "Calling /bin/bash -l through PTY.spawn")
 		@output, @input, @pid = PTY.spawn("/bin/bash -l")
+		$Project.logMsg(LOG_INFO, "Terminal term #{termName} initialized")
 		@po = Thread.new {
+			$Project.logMsg(LOG_INFO, "Thread launched for terminal")
 			while 1 do
 				begin
 					buffer = @output.read_nonblock(1024)
@@ -29,10 +34,11 @@ class TerminalBase
 				#}
 			end
 		}
+		$Project.logMsg(LOG_INFO, "Launched new thread: " + YAML.dump(@po))
 		resizeSelf()
 	end
 
-	
+
 
 	def sendToClientsChar(c)
 		termMsg = {
@@ -51,7 +57,7 @@ class TerminalBase
 		if (@clients[ws])
 			return(@clients[ws])
 		elsif
-			puts "Invalid client with socket: #{ws}"
+			$Project.logMsg(LOG_ERROR, "Invalid client with socket: #{ws}")
 			return FALSE
 		end
 	end
@@ -70,12 +76,13 @@ class TerminalBase
 	end
 
 	def addClient(client, ws)
-		puts "Terminal addClient called"
+		$Project.logMsg(LOG_FENTRY, "Called")
 		if (@clients[ws])
-			puts "This client already exists"
+			$Project.logMsg(LOG_WARN, "This client already exists for this terminal #{@termName}")
+			return false
 		end
 		if (getClientByName(client.name))
-			puts "This client already exists by name"
+			$Project.logMsg(LOG_WARN, "This client already exists for this terminal #{@termName}")
 			return false
 		end
 		@clients[ws] = client
@@ -87,10 +94,11 @@ class TerminalBase
 				'user' => client.name,
 			},
 		}
-		puts "Propogate message: "
-		puts clientPropagate.inspect
+
 		clientString = clientPropagate.to_json
+		$Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "Propagating message to client: " + clientString)
 		sendToClients(clientString)
+
 		clientMessage = {
 			'commandSet' => 'term',
 			'command' => 'userList',
@@ -118,28 +126,31 @@ class TerminalBase
 	end
 
 	def sendToClients(msg)
+		$Project.logMsg(LOG_FENTRY, "Called")
+		$Project.logMsg(LOG_FPARAMS, "msg: " + msg)
 		t = []
 		ccnt = @clients.count
-		puts "Sending msg to #{ccnt} clients"
+		$Project.logMsg(LOG_INFO | LOG_VERBOSE, "Sending message to #{ccnt} clients -- msg: #{msg}")
 		@clients.each do |websocket, client|
 			t << Thread.new do
-				puts "Thread launched to send message"
+				$Project.logMsg(LOG_DEBUG, "Launched new thread to send message to client")
 				websocket.send msg
 			end
 		end
 		t.each do |thread|
-			puts "Rejoining send message thread"
+			$Project.logMsg(LOG_DEBUG, "Rejoining a send message thread")
 			thread.join
 		end
 	end
 
 
 	def sendToClient(client, msg)
-		puts "Sending message to client " + msg.inspect
+		$Project.logMsg(LOG_FENTRY, "Called")
 		client.websocket.send msg
 	end
 
 	def resizeSelf()
+		$Project.logMsg(LOG_FENTRY, "Called")
 		minX = 1000
 		minY = 1000
 		@sizes.each do |client, size|
@@ -150,8 +161,8 @@ class TerminalBase
 				minX = size['rows']
 			end
 		end
+		$Project.logMsg(LOG_INFO, "Resizing terminal to #{minX}x#{minY} via input.ioctl")
 		@input.ioctl(Termios::TIOCSWINSZ, [minX,minY,minX,minY].pack("SSSS"))
-		puts "Resizing terminal to #{minX}x#{minY}"
 	end
 
 end
@@ -203,7 +214,7 @@ class Terminal < TerminalBase
 	end
 
 	def procMsg_resizeTerminal(client, jsonMsg)
-		puts "procMsg_resizeTerminal called"
+		$Project.logMsg(LOG_FENTRY, "Called")
 		resizeTerminal = jsonMsg['resizeTerminal']
 		termSize = resizeTerminal['termSize']
 		if (termSize['rows'] && termSize['cols'])

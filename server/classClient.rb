@@ -1,5 +1,3 @@
-#
-
 class Client
 	attr_accessor	:websocket
 	attr_accessor	:name
@@ -8,6 +6,8 @@ class Client
 	attr_accessor	:terms
 	attr_accessor :userId
 	attr_accessor :user
+	attr_accessor :taskBoards
+
 	def initialize(websocket)
 		@websocket = websocket
 		@documents = { }
@@ -30,11 +30,20 @@ class Client
 		@chats.delete(chat)
 	end
 
-	def addTerm(term)
+	def addTask(taskName)
+		@taskBoards[taskName] = taskName
+	end
+
+	def removeTask(taskName)
+		@taskBoards.delete(taskName)
+	end
+
+
+	def addTerminal(term)
 		@terms[term] = term
 	end
 
-	def removeTerm(term)
+	def removeTerminal(term)
 		@terms.delete(term)
 	end
 

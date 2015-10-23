@@ -5,9 +5,15 @@ require 'yaml'
 # the database, it may be called at any time to import new files.
 
 class FileSystemBase
+
   def initialize(baseDirectory, fileTree)
     @fileTree = fileTree
     @baseDirectory = baseDirectory
+    fileBeginings = "([RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc)"
+    fileEndings = "[\.](erb|rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp|sql)"
+    @FileEndings = "#{fileEndings}$"
+    @FileBeginings = "^#{fileBeginings}"
+
   end
 
   def getFilesFromDirectory(directoryName)
@@ -58,10 +64,11 @@ class FileSystemBase
       # createFileTree(value) when value['type'] == file, although files will
       # not have children they will not see this function as the tree parameter
       if (tree['type'] == 'file')
-        if ((/\.(rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp)$/.match(tree['name'])) || (/[RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc/.match(tree['name'])))
+        if (/#{@FileEndings}/.match(tree['name']) || /#{@FileBeginings}/.match(tree['name']))
           #puts "Attempting to open file: " + @baseDirectory + tree['fullpath']
           fd = File.open(@baseDirectory + tree['fullpath'], "rb");
           data = fd.read.force_encoding('utf-8')
+          data = data.gsub!("\r\n", "\n").gsub!("\r", "\n")
           fd.close
           @fileTree.createFile(tree['name'], nil, data)
           puts "createFile #{tree['name']}"
@@ -116,23 +123,30 @@ class FileSystemBase
         # If the file already exists in the database, DO NOTHING!
         x = DirectoryEntryHelper.find_by_srcpath(value['fullPath'])
         if (x)
-          if (x.filechanges.count > 0)
+#          if (x.filechanges.count > 0)
             @fileTree.createFile(value['fullPath'], nil, nil)
             next
-          end
+#          end
         else
           # File doesn't exist
         end
-
-        if ((/\.(rb|html|php|out|save|log|js|txt|css|scss|coffee|md|rdoc|htaccess|c|rd|cpp)$/.match(value['name'])) || (/^([RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc)/.match(value['name'])))
+        if (/#{@FileEndings}/.match(value['name']) || /#{@FileBeginings}/.match(value['name']))
           # If it's a file that matches out hacked in regex, let's read it and pass the data along to createFile()
           if (!x || (x && x.filechanges.count == 0))
             #puts "Attempting to open file: " + @baseDirectory + value['fullPath']
             fd = File.open(@baseDirectory + value['fullPath'], "rb");
+            if (fd == false)
+              while (!fd) do
+                fd = File.open(@baseDirectory + value['fullPath'], "rb");
+              end
+            end
             data = fd.read
+            if (data && data.is_a?(String) && data.length)
+              data = data.gsub("\r\n", "\n").gsub("\r", "\n")
+              @fileTree.createFile(value['fullPath'], nil, data)
+              $Project.logMsg(LOG_INFO | LOG_VERBOSE, "createFile #{value['fullPath']} with data")
+            end
             fd.close
-            @fileTree.createFile(value['fullPath'], nil, data)
-            puts "createFile #{value['fullPath']} with data"
           else
             @fileTree.createFile(value['fullPath'], nil, nil)
           end
