@@ -54,7 +54,7 @@ class DBFSBase
     end
 
     dirEntry.children.each do |entry|
-      @buildThreadList << Thread.new do
+      buildThreadList << Thread.new do
         Thread.current['children'] = []
         if (entry.ftype == 'folder')
           newEntry = dbbuildTree('/', entry.srcpath)
@@ -67,7 +67,7 @@ class DBFSBase
         end
       end
     end
-    @buildThreadList.each do |cthr|
+    buildThreadList.each do |cthr|
       cthr.join
       children << cthr['children']
     end
