@@ -337,7 +337,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
 
 
     @createFileMutex.synchronize {
-      $Project.logMsg(LOG_INFO, "Got mutex, running createFileBase() "
+      $Project.logMsg(LOG_INFO, "Got mutex, running createFileBase() ")
       return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg))
     }
     $Project.logMsg(LOG_INFO, "Released mutex")
