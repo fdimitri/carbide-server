@@ -51,7 +51,7 @@ class DBFSBase
 
     dirEntry.children.each do |entry|
       if (entry.ftype == 'folder')
-        newEntry = buildTree(entry.srcpath, entry.curName)
+        newEntry = dbbuildTree(entry.srcpath, entry.curName)
         newEntry['type'] = 'directory'
         newEntry['fullPath'] = entry.srcPath
         children << newEntry
@@ -77,7 +77,7 @@ class DBFSBase
           #puts "createFileTree(): mkDir(2) #{value['fullPath']}"
           @fileTree.mkDir(value['fullPath'])
         end
-        createFileTree(value)
+        dbcreateFileTree(value)
       elsif (value['type'] == 'root')
         #createFileTree(value)
         # This is impossible.. root cannot be a child of anything
