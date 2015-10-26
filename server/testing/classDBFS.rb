@@ -46,33 +46,54 @@ class DBFSBase
       $Project.logMsg(LOG_INFO, "srcPath set to #{srcPath}")
     end
 
-    dirEntry =  DirectoryEntry.find_by_srcpath(srcPath)
+    dirEntry = DirectoryEntry.find_by_srcpath(srcPath)
     if (!dirEntry)
       $Project.logMsg(LOG_ERROR, "Unable to find directory entry by srcPath #{srcPath} -- this should never happen in DBFS")
       abort("DBFS Failure")
       return(nil)
     end
-    buildThreadList = []
-    dirEntry.children.find_by_ftype('folder').each do |entry|
-      buildThreadList << Thread.new do
-        Thread.current['children'] = []
+    begin
+      buildThreadList = []
+      deChildren = dirEntry.children.find_by_ftype('folder')
+      if (deChildren.is_a?(Array))
+        deChildren.each do |entry|
+          buildThreadList << Thread.new do
+            Thread.current['children'] = []
+            newEntry = dbbuildTree('/', entry.srcpath)
+            newEntry['type'] = 'directory'
+            newEntry['fullPath'] = entry.srcpath
+            Thread.current['children'] << newEntry
+          end
+        end
+      else
+        entry = deChildren
         newEntry = dbbuildTree('/', entry.srcpath)
         newEntry['type'] = 'directory'
         newEntry['fullPath'] = entry.srcpath
-        Thread.current['children'] << newEntry
+        children << newEntry
       end
-    end
-    dirEntry.children.find_by_ftype('file').each do |entry|
-      newEntry = {'name' => entry.curName, 'type' => 'file', 'fullPath' => entry.srcpath }
-      children << newEntry
-    end
-    if (buildThreadList.length > 0)
-      buildThreadList.each do |cthr|
-        cthr.join
-        cthr['children'].each do |child|
-          children << child
+      deChildren = dirEntry.children.find_by_ftype('file')
+      if (deChildren.is_a?(Array))
+        deChildren.each do |entry|
+          newEntry = {'name' => entry.curName, 'type' => 'file', 'fullPath' => entry.srcpath }
+          children << newEntry
+        end
+      else
+        entry = deChildren
+        newEntry = {'name' => entry.curName, 'type' => 'file', 'fullPath' => entry.srcpath }
+      end
+      if (buildThreadList.length > 0)
+        buildThreadList.each do |cthr|
+          cthr.join
+          cthr['children'].each do |child|
+            children << child
+          end
         end
       end
+    rescue Exception => e
+      $Project.logMsg(LOG_EXCEPTION, "Caught Exception!")
+      $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, "Exception:\n" + YAML.dump(e))
+
     end
     return data
   end
