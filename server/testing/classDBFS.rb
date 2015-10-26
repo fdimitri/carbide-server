@@ -28,7 +28,7 @@ class DBFSBase
     data = {'name' => (name || path)}
     data['children'] = children = []
 
-    if (path == @baseDirectory)
+    if (path == @baseDirectory && !name)
       $Project.logMsg(LOG_INFO, "data['type'] set to 'root'")
       data['type'] = 'root'
     end
@@ -53,22 +53,18 @@ class DBFSBase
       return(nil)
     end
     buildThreadList = []
-    dirEntry.children.each do |entry|
-      while (buildThreadList.length > 10)
-        sleep(1)
-      end
+    dirEntry.children.find_by_ftype('folder').each do |entry|
       buildThreadList << Thread.new do
         Thread.current['children'] = []
-        if (entry.ftype == 'folder')
-          newEntry = dbbuildTree('/', entry.srcpath)
-          newEntry['type'] = 'directory'
-          newEntry['fullPath'] = entry.srcpath
-          Thread.current['children'] << newEntry
-        else
-          newEntry = {'name' => entry.curName, 'type' => 'file', 'fullPath' => entry.srcpath }
-          Thread.current['children'] << newEntry
-        end
+        newEntry = dbbuildTree('/', entry.srcpath)
+        newEntry['type'] = 'directory'
+        newEntry['fullPath'] = entry.srcpath
+        Thread.current['children'] << newEntry
       end
+    end
+    dirEntry.children.find_by_ftype('file').each do |entry|
+      newEntry = {'name' => entry.curName, 'type' => 'file', 'fullPath' => entry.srcpath }
+      children << newEntry
     end
     if (buildThreadList.length > 0)
       buildThreadList.each do |cthr|
