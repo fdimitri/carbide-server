@@ -50,13 +50,13 @@ class DBFSBase
     end
 
     dirEntry.children.each do |entry|
-      if (entry.ftype == 'directory')
+      if (entry.ftype == 'folder')
         newEntry = buildTree(entry.srcpath, entry.curName)
-        newEntry['type'] = entry.ftype
+        newEntry['type'] = 'directory'
         newEntry['fullPath'] = entry.srcPath
         children << newEntry
       else
-        newEntry = {'name' => entry.curName, 'type' => entry.ftype, 'fullPath' => entry.srcpath }
+        newEntry = {'name' => entry.curName, 'type' => 'file', 'fullPath' => entry.srcpath }
         children << newEntry
       end
     end
