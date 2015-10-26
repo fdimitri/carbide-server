@@ -7,7 +7,8 @@ require 'yaml'
 class DBFSBase
 
   def initialize(fileTree)
-    @threadList = []
+    @createThreadList = []
+    @buildThreadList = []
     @fileTree = fileTree
     @baseDirectory = "/"
     fileBeginings = "([RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc)"
@@ -53,15 +54,22 @@ class DBFSBase
     end
 
     dirEntry.children.each do |entry|
-      if (entry.ftype == 'folder')
-        newEntry = dbbuildTree('/', entry.srcpath)
-        newEntry['type'] = 'directory'
-        newEntry['fullPath'] = entry.srcpath
-        children << newEntry
-      else
-        newEntry = {'name' => entry.curName, 'type' => 'file', 'fullPath' => entry.srcpath }
-        children << newEntry
+      @buildThreadList << Thread.new do
+        Thread.current['children'] = []
+        if (entry.ftype == 'folder')
+          newEntry = dbbuildTree('/', entry.srcpath)
+          newEntry['type'] = 'directory'
+          newEntry['fullPath'] = entry.srcpath
+          Thread.current['children'] << newEntry
+        else
+          newEntry = {'name' => entry.curName, 'type' => 'file', 'fullPath' => entry.srcpath }
+          Thread.current['children'] << newEntry
+        end
       end
+    end
+    @buildThreadList.each do |cthr|
+      cthr.join
+      children << cthr['children']
     end
     return data
   end
@@ -95,7 +103,7 @@ class DBFSBase
         # If the file already exists in the database, DO NOTHING!
         x = DirectoryEntryHelper.find_by_srcpath(value['fullPath'])
         if (x)
-          @threadList << Thread.new do
+          @createThreadList << Thread.new do
             $Project.logMsg(LOG_INFO, "Launched thread to createFile")
             @fileTree.createFile(value['fullPath'], nil, nil)
           end
