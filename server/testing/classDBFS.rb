@@ -23,12 +23,12 @@ class DBFSBase
     if (path == @baseDirectory)
       data['type'] = 'root'
     end
-
-    srcPath = path + name
-    if (!(path[-1] == '/'))
-      srcPath = path + "/" + name
+    if (name)
+      srcPath = path + name
+      if (!(path[-1] == '/'))
+        srcPath = path + "/" + name
+      end
     end
-
     dirEntry =  DirectoryEntry.find_by_srcpath(srcPath)
 
     if (!dirEntry)
