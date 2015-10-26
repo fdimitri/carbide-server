@@ -298,10 +298,8 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
   end
 
   def fileExists(srcPath)
-    if ($Project)
-      $Project.logMsg(LOG_FENTRY, "Entered function")
-      $Project.logMsg(LOG_FPARAMS, "srcPath: #{srcPath}")
-    end
+    $Project.logMsg(LOG_FENTRY, "Entered function")
+    $Project.logMsg(LOG_FPARAMS, "srcPath: #{srcPath}")
     if (srcPath[0] != '/')
       srcPath = '/' + srcPath
     end
@@ -325,10 +323,18 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     puts "createFile(): Waiting for mutex "
     puts Time.now.to_f.to_s
     fromProcMsg = false
+    if (DirectoryEntryHelper.find_by_srcpath(fileName))
+      return
+    end
     if (/procMsg/.match(caller_locations(1,1)[0].label))
       puts "Called createFile() from procMsg_*"
       fromProcMsg = true
     end
+    if (/dbBuildTree/.match(caller_locations(1,1)[0].label))
+      puts "Called createFile() from dbBuildTree"
+      return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg))
+    end
+
 
     @createFileMutex.synchronize {
       puts "createFile(): Got mutex, running createFileBase() "
@@ -345,6 +351,30 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     dirList = getDirectory(fileName)
     clientErrors = []
     begin
+      x = DirectoryEntryHelper.find_by_srcpath(fileName)
+      if (x)
+        if (x.filechanges.count > 0)
+          # The database takes priority over the filesystem, although we may change this once we have a diff system in (so filesystem modifications affect the database)
+          $Project.logMsg(LOG_INFO, "Current filechanges.count: " + x.filechanges.count.to_s)
+          rval = x.calcCurrent()
+          $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "calcCurrent gave us:")
+          $Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(rval))
+
+          $Project.logMsg(LOG_INFO, "Setting data to rval[:data] from calcCurrent()")
+          data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
+          rval = nil
+        end
+        if (!@Project.getDocument(fileName))
+          $Project.logMsg(LOG_INFO, "Attempt to get document by fileName: #{fileName} failed, adding document")
+          doc = @Project.addDocument(fileName, x)
+        end
+        if (data && (data.is_a?(String) || data.is_a?(Array)))
+          $Project.logMsg(LOG_INFO "Calling getDocument/setContents");
+          doc = @Project.getDocument(fileName)
+          doc.setContents(data)
+        end
+        return true
+      end
       if (!(a = dirExists(dirList)))
         if (!mkdirp)
           puts "Directory does not exist " + dirList.join() + " .."
@@ -485,13 +515,20 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
 
 
   def mkDir(dirName, userId=nil)
+    $Project.logMsg(LOG_FENTRY, "Called")
     # mkDir works like `mkdir -p`, it loops through the directory list from loop to end
     # and checks to see if it exists at each step -- if it doesn't, it calls createDirectory()
     # for a directory at each level in the tree.
     rere = getDirArray(dirName)
-    puts "mkDir(#{dirName}) .. " + rere.inspect.to_s
+    $Project.logMsg(LOG_DEBUG, "mkDir(#{dirName}) .. " + rere.inspect.to_s)
     i = rere.length - 1
 
+    a = dirExists(rere)
+    if (a && a['last'])
+      $Project.logMsg(LOG_INFO, "Shortcutting, dirExists(rere) gave me a directoryEntry")
+      return(a['last'])
+    end
+    
     while (i > 0)
       #			puts "In main loop, checking dirExists " + rere.take(rere.length - i).join() + " .. "
       while dirExists(rere.take(rere.length - i)) && i > 0

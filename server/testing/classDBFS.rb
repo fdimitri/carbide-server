@@ -7,6 +7,7 @@ require 'yaml'
 class DBFSBase
 
   def initialize(fileTree)
+    @threadList = []
     @fileTree = fileTree
     @baseDirectory = "/"
     fileBeginings = "([RM]akefile|Gemfile|README|LICENSE|config|MANIFEST|COMMIT_EDITMSG|HEAD|index|desc)"
@@ -16,7 +17,7 @@ class DBFSBase
   end
 
 
-  def buildTree(path=@baseDirectory, name=nil)
+  def dbbuildTree(path=@baseDirectory, name=nil)
     $Project.logMsg(LOG_FENTRY, "Called")
     $Project.logMsg(LOG_FENTRY, "path: " + path.to_s)
     if (name)
@@ -62,7 +63,7 @@ class DBFSBase
     return data
   end
 
-  def createFileTree(tree)
+  def dbcreateFileTree(tree)
     tree['children'].each do |value, k|
       # Ignore files, let's do directories first! Yes, it means two loop iterations, there was a reason for this with the old code.. they could
       # probably be combined into a single loop now.
@@ -91,26 +92,14 @@ class DBFSBase
         # If the file already exists in the database, DO NOTHING!
         x = DirectoryEntryHelper.find_by_srcpath(value['fullPath'])
         if (x)
-#          if (x.filechanges.count > 0)
+          @threadList << Thread.new do
+            $Project.logMsg(LOG_INFO, "Launched thread to createFile")
             @fileTree.createFile(value['fullPath'], nil, nil)
-            next
-#          end
-        else
-          # File doesn't exist
-        end
-        if (/#{@FileEndings}/.match(value['name']) || /#{@FileBeginings}/.match(value['name']))
-            @fileTree.createFile(value['fullPath'], nil, nil)
-        else
-          # If we don't like the name or file extension, we just create a file with no data entry.. we should really load all files, but we don't deal with binaries yet
-          # The Document abstraction doesn't allow for that, we really need a File abstraction instead
-          # In fact, we don't even properly deal with non ASCII-8 files, we need to do some encoding checks to see if they're UTF-8, or have a JPEG header, etc.
-          # We may have to shell out to GNU's 'file' for that, or build a Gem wrapper for 'file' if such a thing does not exist
-          @fileTree.createFile(value['fullPath'])
-          #puts "createFile #{value['fullPath']} without data"
+          end
         end
       else
-        # We shouldn't encounter this.
-        puts "Unknown type #{value['type']}"
+        $Project.logMsg(LOG_ERROR, "This shouldn't ever happen, couldn't find by srcPath: #{value['fullPath']}")
+        abort("MAJOR ISSUE")
       end
     end
   end
