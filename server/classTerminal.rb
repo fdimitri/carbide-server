@@ -193,6 +193,7 @@ class Terminal < TerminalBase
 	end
 
 	def procMsg_inputChar(client, jsonMsg)
+		$Project.logMsg(LOG_FENTRY, "Called")
 		inputChar = jsonMsg['inputChar']
 		@input.print(inputChar['data'])
 		broadcastReply = {
@@ -209,31 +210,40 @@ class Terminal < TerminalBase
 	end
 
 	def procMsg_leaveTerminal(client, jsonMsg)
-		remClient(client)
-		clientReply = {
-			'commandSet' => 'term',
-			'commandReply' => true,
-			'command' => 'leaveTerminal',
-			'leaveTerminal' => {
-				'status' => TRUE,
+		$Project.logMsg(LOG_FENTRY, "Called")
+		begin
+			remClient(client)
+			clientReply = {
+				'commandSet' => 'term',
+				'commandReply' => true,
+				'command' => 'leaveTerminal',
+				'leaveTerminal' => {
+					'status' => TRUE,
+				}
 			}
-		}
-		clientString = clientReply.to_json
-		sendToClient(client, clientString)
-		@sizes.delete(client)
-		resizeSelf()
+			clientString = clientReply.to_json
+			sendToClient(client, clientString)
+			@sizes.delete(client)
+			resizeSelf()
+		rescue Exception => e
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP, "Reached an exception:\n" + YAML.dump(e))
+			bt = caller_locations(10)
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_BACKTRACE, "Backtrace:\n" + YAML.dump(bt))
+
+		end
+
 	end
 
 	def procMsg_resizeTerminal(client, jsonMsg)
-		puts "procMsg_resizeTerminal called"
+		$Project.logMsg(LOG_FENTRY, "Called")
 		resizeTerminal = jsonMsg['resizeTerminal']
 		termSize = resizeTerminal['termSize']
 		if (termSize['rows'] && termSize['cols'])
 			@sizes[client] = termSize
 			resizeSelf()
 		else
-			puts "There was no termsize rows/cols.."
-			puts YAML.dump(jsonMsg)
+			$Project.logMsg(LOG_WARN, "There was no termsize rows/cols..")
+			$Project.logMsg(LOG_WARN | LOG_DEBUG | LOG_DUMP, "jsonMsg:\n" + YAML.dump(jsonMsg))
 		end
 	end
 end

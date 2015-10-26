@@ -323,6 +323,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
   def createFile(fileName, userId=nil, data=nil, mkdirp = false)
     $Project.logMsg(LOG_FENTRY, "Called")
     fromProcMsg = false
+    fromdbBuildTree = false
     if (DirectoryEntryHelper.find_by_srcpath(fileName))
       return
     end
@@ -331,25 +332,32 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       fromProcMsg = true
     end
     if (/dbbuildTree/.match(caller_locations(1,1)[0].label))
+      fromdbBuildTree = true
       $Project.logMsg(LOG_INFO, "Called createFile() from dbBuildTree -- bypassing mutex")
-      return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg))
+      return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg, fromdbBuildTree))
     end
 
     $Project.logMsg(LOG_INFO, "Waiting for mutex.")
     @createFileMutex.synchronize {
       $Project.logMsg(LOG_INFO, "Got mutex, running createFileBase() ")
-      return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg))
+      return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg, fromdbBuildTree))
     }
     $Project.logMsg(LOG_INFO, "Released mutex")
   end
 
-  def createFileBase(fileName, userId=nil, data=nil, mkdirp = false, fromProcMsg)
+  def createFileBase(fileName, userId=nil, data=nil, mkdirp = false, fromProcMsg, fromdbBuildTree)
     $Project.logMsg(LOG_FENTRY, "Called")
     baseName = getBaseName(fileName)
     dirList = getDirectory(fileName)
     clientErrors = []
     begin
       x = DirectoryEntryHelper.find_by_srcpath(fileName)
+      if (fromdbBuildTree)
+        $Project.logMsg(LOG_INFO, "fromdbBuildTree is true, expecting there to be filechanges in most documents..")
+        $Project.logMsg(LOG_INFO, "fileName: #{fileName}")
+        $Project.logMsg(LOG_INFO, "Number of changes: " + x.filechanges.count.to_s)
+        $Project.logMsg(LOG_DEBUG | LOG_DUMP, "DEH find_by_srcpath:\n", YAML.dump(x))
+      end
       if (x)
         if (x.filechanges.count > 0)
           # The database takes priority over the filesystem, although we may change this once we have a diff system in (so filesystem modifications affect the database)
