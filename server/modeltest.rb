@@ -140,10 +140,12 @@ class ProjectServer
 			if (!(@logLevel & LOG_DUMP))
 				return("Dump disabled")
 			end
-			if (@logParams & SLOG_DUMP_YAML)
+			if (@logParams & SLOG_DUMP_YAML == SLOG_DUMP_YAML)
 				return(YAML.dump(object))
-			elsif (@logParams & SLOG_DUMP_INSPECT)
+			elsif (@logParams & SLOG_DUMP_INSPECT == SLOG_DUMP_INSPECT)
 				return(object.inspect.to_s)
+			elsif (@logParams & SLOG_DUMP_JSON == SLOG_DUMP_JSON)
+				return(object.to_json)
 			end
 
 		end
@@ -165,6 +167,7 @@ class ProjectServer
 			$Project = self
 			@logLevel = 0xFFFFFFFF
 			@logLevel = (@logLevel & ~(LOG_FRPARAM))
+			@logLevel = (@logLevel & ~(LOG_DUMP))
 			@logParams = SLOG_DUMP_INSPECT
 			puts "logLevel: " + "%#b" % "#{@logLevel}"
 			@chats = { }
