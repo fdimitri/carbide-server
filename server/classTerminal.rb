@@ -112,10 +112,10 @@ class TerminalBase
 		$Project.logMsg(LOG_FPARAMS | LOG_DUMP, "client:\n" + $Project.dump(client))
 		badError = false
 		begin
-			if (client.respond_to?(removeTerm))
-				client.removeTerm(@termName)
+			if (client.respond_to?('removeTerminal'))
+				client.removeTerminal(@termName)
 			else
-				$Project.logMsg(LOG_ERROR, "Client does not respond to removeTerm()")
+				$Project.logMsg(LOG_ERROR, "Client does not respond to removeTerminal()")
 				badError = true
 			end
 			if (@clients[client.websocket])
