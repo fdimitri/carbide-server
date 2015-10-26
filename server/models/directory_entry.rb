@@ -201,34 +201,35 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       params[:owner_id] = DirectoryEntry.find_by_id(params[:owner_id])
     end
     params.each do |key, value|
-      puts "#{key} has " + value.class.to_s
+      $Project.logMsg(LOG_INFO | LOG_DEBUG, "#{key} has class: " + value.class.to_s)
     end
     @directoryEntry = DirectoryEntry.new(params)
     @directoryEntry.save!
   end
 
   def getNewestEntry()
+    $Project.logMsg(LOG_FENTRY, "Called")
     begin
-      puts "getNewestEntry(): Entry"
       #res = DirectoryEntry.find(:first, :order => "updated_at DESC")
       res = DirectoryEntry.order("updated_at DESC").offset(0).first
-      puts "getNewestEntry(): Returning result:"
-      puts YAML.dump(res)
     rescue Exception => e
       $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
       return(false)
     end
+    $Project.logMsg(LOG_FRETURN, "Leaving function")
     return(res.updated_at)
   end
 
 
   def getDirectory(fileName)
+    $Project.logMsg(LOG_FENTRY, "Called")
     fileName = getDirArray(fileName);
     fileName = fileName.take(fileName.length - 1)
     fileName.map
     if (fileName.drop(1).length == 0)
       return(['/'])
     end
+    $Project.logMsg(LOG_FRETURN, "Leaving function")
     return fileName
   end
 
@@ -320,33 +321,30 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
 
 
   def createFile(fileName, userId=nil, data=nil, mkdirp = false)
-    puts "createFile(): Waiting for mutex "
-    puts Time.now.to_f.to_s
+    $Project.logMsg(LOG_FENTRY, "Called, waiting for mutex..")
     fromProcMsg = false
     if (DirectoryEntryHelper.find_by_srcpath(fileName))
       return
     end
     if (/procMsg/.match(caller_locations(1,1)[0].label))
-      puts "Called createFile() from procMsg_*"
+      $Project.logMsg(LOG_INFO, "Called createFile() from procMsg_*")
       fromProcMsg = true
     end
     if (/dbBuildTree/.match(caller_locations(1,1)[0].label))
-      puts "Called createFile() from dbBuildTree"
+      $Project.logMsg(LOG_INFO, "Called createFile() from dbBuildTree")
       return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg))
     end
 
 
     @createFileMutex.synchronize {
-      puts "createFile(): Got mutex, running createFileBase() "
-      puts Time.now.to_f.to_s
-
+      $Project.logMsg(LOG_INFO, "Got mutex, running createFileBase() "
       return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg))
     }
-    puts "createFile(): Released mutex "
-    puts Time.now.to_f.to_s
+    $Project.logMsg(LOG_INFO, "Released mutex"
   end
 
   def createFileBase(fileName, userId=nil, data=nil, mkdirp = false, fromProcMsg)
+    $Project.logMsg(LOG_FENTRY, "Called")
     baseName = getBaseName(fileName)
     dirList = getDirectory(fileName)
     clientErrors = []
@@ -377,8 +375,8 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       end
       if (!(a = dirExists(dirList)))
         if (!mkdirp)
-          puts "Directory does not exist " + dirList.join() + " .."
-          puts "Could not create file #{fileName} under non-existing directory"
+          $Project.logMsg(LOG_INFO, "Directory does not exist " + dirList.join() + " ..")
+          $Project.logMsg(LOG_INFO, "Could not create file #{fileName} under non-existing directory")
           if (fromProcMsg)
             clientErrors << "Directory does not exist " + dirList.join() + " .."
             clientErrors << "Could not create file #{fileName} under non-existing directory"
@@ -386,8 +384,10 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
               'status' => false,
               'errorReasons' => clientErrors,
             }
+            $Project.logMsg(LOG_FRETURN, "Exiting with errors")
             return(replyWith)
           else
+            $Project.logMsg(LOG_FRETURN, "Exiting with errors")
             return false
           end
         else
@@ -395,11 +395,11 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
           if (myDirList[0] != '/')
             myDirList = '/' + myDirList
           end
-          puts "Attempting to create directory " + myDirList
+          $Project.logMsg(LOG_INFO, "Attempting to create directory " + myDirList)
           rval = mkDir(myDirList)
           a = dirExists(dirList)
           if (!rval || !a)
-            puts "createFile() failed to create Directory!"
+            $Project.logMsg(LOG_ERROR, "createFile() failed to create Directory!")
             if (fromProcMsg)
               clientErrors << "createFile() failed to create Directory: " + myDirList
               replyWith = {
@@ -415,7 +415,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       end
       x = DirectoryEntryHelper.find_by_srcpath(fileName)
       if (!x)
-        puts "Couldn't find file by srcpath: #{fileName} in DB -- creating entry"
+        $Project.logMsg(LOG_INFO, "Couldn't find file by srcpath: #{fileName} in DB -- creating entry")
         # The file is NOT in the DB yet, add it!
         lastDir = a[:lastDir]
         newEntry = {:curName => baseName, :owner_id => lastDir.id, :createdBy_id => User.find_by_id(userId), :ftype => 'file', :srcpath => fileName }
@@ -474,27 +474,28 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     begin
 
       if (!@Project.getDocument(fileName))
-        puts "@Project.addDocument(fileName, x)"
+        $Project.logMsg(LOG_INFO, "Adding document #{fileName}")
         doc = @Project.addDocument(fileName, x)
       end
 
       if (data && (data.is_a?(String) || data.is_a?(Array)))
-        puts "Calling getDocument/setContents"
+        $Project.logMsg(LOG_INFO, "Calling getDocument/setContents")
         doc = @Project.getDocument(fileName)
         doc.setContents(data)
       end
 
       if (fromProcMsg)
-        puts "clientErrors.length: " + clientErrors.length.to_s
+        $Project.logMsg(LOG_INFO, "clientErrors.length: " + clientErrors.length.to_s)
         if (clientErrors.length == 0)
-          puts "No clientErrors"
+          $Project.logMsg(LOG_INFO, "No errors to report to client, A-OK")
           replyWith = {
             'status' => true,
             'DEHEntry' => x,
             'errorReasons' => false,
           }
         else
-          puts YAML.dump(clientErrors)
+          $Project.logMsg(LOG_INFO | LOG_ERROR, "Unable to complete request for client, errors detected")
+          $Project.logMsg(LOG_ERROR | LOG_DEBUG | LOG_DUMP, "clientErrors:\n" + YAML.dump(clientErrors))
           replyWith = {
             'status' => false,
             'errorReasons' => clientErrors,
@@ -508,7 +509,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
       $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(caller))
       $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
-      exit
+      abort("Serious error")
       return
     end
   end
@@ -574,7 +575,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     a = dirExists(fullDirectory)
     if (a != false)
       $Project.logMsg(LOG_WARN, "Possible error: This directory #{dirName} has already been created! #{fullDirectory.inspect}")
-      $Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(a[:lastDir])
+      $Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(a[:lastDir]))
       # The directory has already been created/properly exists, return the directory model to the calling function}
       return a[:lastDir]
     else
@@ -650,8 +651,7 @@ class FileTreeX < DirectoryEntryHelper
       end
 
       $Project.logMsg(LOG_INFO, "This is after the start == nil block, we found the root directory..")
-      puts YAML.dump(start)
-      puts YAML.dump(start.children)
+      $Project.logMsg(LOG_DEBUG | LOG_DUMP, "start:\n" + YAML.dump(start))
       jsonString = []
       if (start == getRootDirectory())
         type = 'root'
@@ -778,8 +778,8 @@ class FileTreeX < DirectoryEntryHelper
   end
 
   def procMsg_getFileTreeModalJSON(client, jsonMsg)
-    puts "procMsg_getFileTreeModalJSON() Entry"
-    puts YAML.dump(jsonTree(nil, false, '', 'modal'))
+    $Project.logMsg(LOG_FENTRY, "Called")
+    #puts YAML.dump(jsonTree(nil, false, '', 'modal'))
     clientReply = {
       'commandSet' => 'FileTree',
       'command' => 'setFileTreeModalJSON',
@@ -788,10 +788,11 @@ class FileTreeX < DirectoryEntryHelper
       }
     }
     @Project.sendToClient(client, clientReply.to_json)
-    puts "procMsg_getFileTreeJSON() Exit"
+    $Project.logMsg(LOG_FRETURN, "Exit")
   end
 
   def procMsg_createFile(client, jsonMsg)
+    $Project.logMsg(LOG_FENTRY, "Called")
     tData = jsonMsg['createFile']
     srcPath = tData['srcPath']
     hash = jsonMsg['hash']
@@ -869,15 +870,15 @@ class FileTreeX < DirectoryEntryHelper
         }
       }
       @Project.sendToClientsExcept(client, broadcastReply.to_json)
-      puts "procMsg_createFile() exit"
+      $Project.logMsg(LOG_FRETURN, "Exiting!")
     rescue Exception => e
-
       $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
       return(false)
     end
   end
 
   def procMsg_createDirectory(client, jsonMsg)
+    $Project.logMsg(LOG_FENTRY, "Called")
     tData = jsonMsg['createDirectory']
     srcPath = tData['srcPath']
     hash = jsonMsg['hash']
@@ -968,7 +969,7 @@ class FileTreeX < DirectoryEntryHelper
         }
       }
       @Project.sendToClientsExcept(client, broadcastReply.to_json)
-      puts "procMsg_createDirectory()) exit"
+      $Project.logMsg(LOG_FRETURN, "Returning")
     rescue Exception => e
 
       $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
@@ -980,8 +981,8 @@ class FileTreeX < DirectoryEntryHelper
 
 
   def procMsg_renameEntry(client, jsonMsg)
+    $Project.logMsg("Called")
     begin
-      STDERR.puts YAML.dump(jsonMsg)
       tData = jsonMsg['renameEntry']
       srcPath = tData['srcPath']
       newName = tData['newName']
@@ -1002,7 +1003,8 @@ class FileTreeX < DirectoryEntryHelper
 
       fEntry = DirectoryEntryHelper.find_by_srcpath(srcPath)
       if (!fEntry)
-        STDERR.puts "procMsg_renameEntry unable to find file/directory entry by srcPath "  + srcPath
+        $Project.logMsg(LOG_ERROR, "Unable to find file/directory entry by srcPath #{srcPath}")
+        $Project.logMsg(LOG_FRETURN, "Leaving, returning false")
         return(false)
       end
 
@@ -1019,8 +1021,7 @@ class FileTreeX < DirectoryEntryHelper
         @Project.sendToClient(client, clientReply.to_json)
         return(false)
       end
-
-      STDERR.puts "Call rename with newName"
+      $Project.logMsg("Calling DirectoryEntryHelper instantiation fEntry.rename() with #{newName}")
       rval = fEntry.rename(newName)
       if (!rval)
         clientReply = {
@@ -1079,7 +1080,7 @@ class FileTreeX < DirectoryEntryHelper
     # end
     fEntry = DirectoryEntry.find_by_srcpath(srcPath)
     if (!fEntry)
-      puts "procMsg_deleteEntry unable to find by srcPath "  + srcPath
+      $Project.logMsg(LOG_ERROR, "Unable to find by srcPath "  + srcPath)
     end
     DirectoryEntry.destroy(fEntry.id)
   end
