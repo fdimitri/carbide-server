@@ -110,11 +110,11 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
       $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "Processing respond_to?s for a change: " + change.changeType)
       $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, YAML.dump(change))
       if (self.respond_to?("cmd_" + change.changeType))
-	    $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "self.cmd_ exists for this change, calling it -- we will NOT call document.do_ directly in this case")
+        $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "self.cmd_ exists for this change, calling it -- we will NOT call document.do_ directly in this case")
         self.send("cmd_" + change.changeType, document, change)
         execCmd = true
       else
-	    $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "self.cmd_ does not exist, checking self.pre_ and document.do_")
+        $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "self.cmd_ does not exist, checking self.pre_ and document.do_")
         if (self.respond_to?("pre_" + change.changeType))
           execCmd = true
           $Project.logMsg(LOG_DEBUG | LOG_VERYVERBOSE, "self.pre_ exists for this change, calling it")
@@ -122,12 +122,12 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
         end
         if (document.respond_to?("do_" + change.changeType))
           execCmd = true
-	      $Project.logMsg(LOG_DEBUG | LOG_VERYVERBOSE, "document.do__ exists for this change, calling it")
-	      if (change.changeData.is_json?)
-	        document.send("do_" + change.changeType, nil, JSON.parse(change.changeData, :quirks_mode => true))
-	      else
-	        document.send("do_" + change.changeType, nil, change.changeData)
-	      end
+          $Project.logMsg(LOG_DEBUG | LOG_VERYVERBOSE, "document.do__ exists for this change, calling it")
+          if (change.changeData.is_json?)
+            document.send("do_" + change.changeType, nil, JSON.parse(change.changeData, :quirks_mode => true))
+          else
+            document.send("do_" + change.changeType, nil, change.changeData)
+          end
         end
       end
       $Project.logMsg(LOG_DEBUG | LOG_INFO, "Document length is: " + document.getContents().length.to_s + " and number of lines is: " + document.getContents().split("\n").length.to_s)
@@ -145,7 +145,7 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
     $Project.logMsg(LOG_FENTRY, "Entering function")
     $Project.logMsg(LOG_FPARAMS, "Document: " + YAML.dump(document))
     $Project.logMsg(LOG_FPARAMS, "Change: " + YAML.dump(change))
-    if (!change.changeData.is_a?(String)) 
+    if (!change.changeData.is_a?(String))
       $Project.logMsg(LOG_ERROR, "Passed incorrectly formatted changeData -- should be a string but it isn't")
       $Project.logMsg(LOG_ERROR | LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, YAML.dump(change))
       $Project.logMsg(LOG_ERROR | LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, change.inspect.to_s)
@@ -162,7 +162,7 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
       $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, "Inspected data: " + data.inspect.to_s)
       #data = data[1..-2].split("\n")
       if (data.include?("\n"))
-	data = data.split("\n")
+        data = data.split("\n")
       else
         data = [ data ]
       end
@@ -398,18 +398,18 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
       $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(caller))
       $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
-exit
+      exit
       return
     end
 
-      if (x)
-        # The file already exists in the db-- this is normal if we did a filesystem scan
-        # on a second server boot, etc
-	$Project.logMsg(LOG_INFO | LOG_DEBUG, "We have recorded " + x.filechanges.count.to_s + " filechanges to #{fileName}")
-        if (data)
-          $Project.logMsg(LOG_INFO | LOG_DEBUG, "We were called with data, only setting data if filechanges.count == 0")
-        end
-    begin
+    if (x)
+      # The file already exists in the db-- this is normal if we did a filesystem scan
+      # on a second server boot, etc
+      $Project.logMsg(LOG_INFO | LOG_DEBUG, "We have recorded " + x.filechanges.count.to_s + " filechanges to #{fileName}")
+      if (data)
+        $Project.logMsg(LOG_INFO | LOG_DEBUG, "We were called with data, only setting data if filechanges.count == 0")
+      end
+      begin
         if ((x.filechanges.count == 0) && data)
           # This file had no data before, but has been seen.. it has 0 changes made to it, so we just load it from disk with "setContents" as our command
           # All of the changeTypes will directly correlate to existing C->S API calls
@@ -417,32 +417,32 @@ exit
           if (userId == nil)
             userId = 1
           end
-	  $Project.logMsg(LOG_INFO | LOG_DEBUG, "Calling FileChange.create");
-	  $Project.logMsg(LOG_DEBUG | LOG_DUMP, "JSON data:" + ((data.encode('UTF-8', invalid: :replace, undef: :replace, replace: ''))).to_s);
+          $Project.logMsg(LOG_INFO | LOG_DEBUG, "Calling FileChange.create");
+          $Project.logMsg(LOG_DEBUG | LOG_DUMP, "JSON data:" + ((data.encode('UTF-8', invalid: :replace, undef: :replace, replace: ''))).to_s);
           FileChange.create(:changeType => "setContents", :changeData => ((data.encode('UTF-8', invalid: :replace, undef: :replace, replace: ''))), :startLine => 0, :startChar => 0, :DirectoryEntry_id => x.id, :revision => 0, :User_id => userId)
         elsif (x.filechanges.count > 0)
           # The database takes priority over the filesystem, although we may change this once we have a diff system in (so filesystem modifications affect the database)
-	  $Project.logMsg(LOG_INFO, "Current filechanges.count: " + x.filechanges.count.to_s)
+          $Project.logMsg(LOG_INFO, "Current filechanges.count: " + x.filechanges.count.to_s)
           rval = x.calcCurrent()
-	  $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "calcCurrent gave us:")
-	  $Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(rval))
+          $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "calcCurrent gave us:")
+          $Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(rval))
 
-	  $Project.logMsg(LOG_INFO, "Setting data to rval[:data] from calcCurrent()")
+          $Project.logMsg(LOG_INFO, "Setting data to rval[:data] from calcCurrent()")
           data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
-	  rval = nil
+          rval = nil
         end
 
-    rescue Exception => e
-      $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
-      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(caller))
-      $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
-exit
-      return
-    end
+      rescue Exception => e
+        $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
+        $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(caller))
+        $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
+        exit
+        return
       end
-	
+    end
+
     begin
-	
+
       if (!@Project.getDocument(fileName))
         puts "@Project.addDocument(fileName, x)"
         doc = @Project.addDocument(fileName, x)
@@ -478,7 +478,7 @@ exit
       $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
       $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(caller))
       $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
-exit
+      exit
       return
     end
   end
@@ -827,7 +827,7 @@ class FileTreeX < DirectoryEntryHelper
       @Project.sendToClientsExcept(client, broadcastReply.to_json)
       puts "procMsg_createFile() exit"
     rescue Exception => e
-      
+
       $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
       return(false)
     end
@@ -926,7 +926,7 @@ class FileTreeX < DirectoryEntryHelper
       @Project.sendToClientsExcept(client, broadcastReply.to_json)
       puts "procMsg_createDirectory()) exit"
     rescue Exception => e
-      
+
       $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
       return(false)
     end
