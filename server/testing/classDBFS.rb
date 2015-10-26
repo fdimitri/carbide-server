@@ -52,7 +52,7 @@ class DBFSBase
       abort("DBFS Failure")
       return(nil)
     end
-
+    buildThreadList = []
     dirEntry.children.each do |entry|
       buildThreadList << Thread.new do
         Thread.current['children'] = []
@@ -67,9 +67,11 @@ class DBFSBase
         end
       end
     end
-    buildThreadList.each do |cthr|
-      cthr.join
-      children << cthr['children']
+    if (buildThreadList.length > 0)
+      buildThreadList.each do |cthr|
+        cthr.join
+        children << cthr['children']
+      end
     end
     return data
   end
