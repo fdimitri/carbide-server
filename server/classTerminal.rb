@@ -4,9 +4,17 @@ require 'io/console'
 require 'termios'
 
 
+
+
+
+
+
 class TerminalBase
+		
 	attr_accessor	:clients
+		
 	attr_accessor	:termName
+		
 
 	def initialize(project, termName)
 		$Project.logMsg(LOG_FENTRY, "Entering function")
@@ -16,11 +24,9 @@ class TerminalBase
 		@termName = termName
 		@clients = { }
 		@sizes = { }
-		$Project.logMsg(LOG_INFO, "Calling /bin/bash -l through PTY.spawn")
-		@output, @input, @pid = PTY.spawn("/bin/bash -l")
 		$Project.logMsg(LOG_INFO, "Terminal term #{termName} initialized")
+		@output, @input, @pid = PTY.spawn("/bin/bash -l")
 		@po = Thread.new {
-			$Project.logMsg(LOG_INFO, "Thread launched for terminal")
 			while 1 do
 				begin
 					buffer = @output.read_nonblock(1024)
@@ -57,7 +63,7 @@ class TerminalBase
 		if (@clients[ws])
 			return(@clients[ws])
 		elsif
-			$Project.logMsg(LOG_ERROR, "Invalid client with socket: #{ws}")
+			puts "Invalid client with socket: #{ws}"
 			return FALSE
 		end
 	end
@@ -111,8 +117,13 @@ class TerminalBase
 	end
 
 	def remClient(client)
+	    $Project.logMsg(LOG_FENTRY, "Called")
 		client.removeTerm(@termName)
-		@clients.delete(client.websocket)
+		if (@clients[client.websocket])
+		    @clients.delete(client.websocket)
+		else
+		    $Project.logMsg(LOG_WARN, "Client was not in the list..")
+		end
 		termMsg = {
 			'commandSet' => 'term',
 			'command' => 'userLeave',
@@ -161,8 +172,8 @@ class TerminalBase
 				minX = size['rows']
 			end
 		end
-		$Project.logMsg(LOG_INFO, "Resizing terminal to #{minX}x#{minY} via input.ioctl")
 		@input.ioctl(Termios::TIOCSWINSZ, [minX,minY,minX,minY].pack("SSSS"))
+		$Project.logMsg(LOG_INFO, "Resizing terminal to #{minX}x#{minY}")
 	end
 
 end
@@ -214,7 +225,7 @@ class Terminal < TerminalBase
 	end
 
 	def procMsg_resizeTerminal(client, jsonMsg)
-		$Project.logMsg(LOG_FENTRY, "Called")
+		puts "procMsg_resizeTerminal called"
 		resizeTerminal = jsonMsg['resizeTerminal']
 		termSize = resizeTerminal['termSize']
 		if (termSize['rows'] && termSize['cols'])
