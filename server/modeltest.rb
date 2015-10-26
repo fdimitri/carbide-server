@@ -130,8 +130,8 @@ class ProjectServer
 
 	def readTree()
 		fsb = DBFSBase.new(@FileTree)
-		testlist = fsb.buildTree()
-		fsb.createFileTree(testlist)
+		testlist = fsb.dbbuildTree()
+		fsb.dbcreateFileTree(testlist)
 		fsb = FileSystemBase.new(@baseDirectory, @FileTree)
 		testlist = fsb.buildTree()
 		fsb.createFileTree(testlist)
