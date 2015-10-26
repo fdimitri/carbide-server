@@ -528,7 +528,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       $Project.logMsg(LOG_INFO, "Shortcutting, dirExists(rere) gave me a directoryEntry")
       return(a['last'])
     end
-    
+
     while (i > 0)
       #			puts "In main loop, checking dirExists " + rere.take(rere.length - i).join() + " .. "
       while dirExists(rere.take(rere.length - i)) && i > 0
@@ -557,41 +557,44 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
   end
 
   def createDirectoryBase(dirList, dirName, userId=nil)
+    $Project.logMsg(LOG_FENTRY, "Called")
+    $Project.logMsg(LOG_FPARAMS, "dirList:\n" + YAML.dump(dirList))
+    $Project.logMsg(LOG_FPARAMS, "dirName:\n" + YAML.dump(dirName))
+
     # All but the last directory must exist, as opposed to mkdir which will automagically create directories a la "mkdir -p"
     # Ie if you want /server/testing/logs, you'd need to create /server, then /server/testing, then /server/testing/logs when calling this function
     # To make it slightly easier it takes an array ["/", "server","testing"] as the first argument, these directories should exist (and we check for that)
     # And it takes the new subdirectory name as the second argument, with the userId of the person creating the directory as an optional 3rd argument
     # userId may stay nil -- it will show up as "system generated" in that case
-    puts "createDirectory() called to create #{dirName} under #{dirList.inspect}"
+    $Project.logMsg(LOG_INFO, "Called to create #{dirName} under #{dirList.inspect}")
     srcPath =  dirList.map {|s| s.inspect}.join().gsub('"','').gsub('/','')
     existingDirectories = dirList.take(dirList.length);
     fullDirectory = existingDirectories
     fullDirectory << dirName
     a = dirExists(fullDirectory)
     if (a != false)
-      puts "createDirectory(): Possible error: This directory #{dirName} has already been created! #{fullDirectory.inspect}"
-      puts YAML.dump(a[:lastDir])
+      $Project.logMsg(LOG_WARN, "Possible error: This directory #{dirName} has already been created! #{fullDirectory.inspect}")
+      $Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(a[:lastDir])
       # The directory has already been created/properly exists, return the directory model to the calling function}
       return a[:lastDir]
     else
-      puts "createDirectory(): Directory does not exist -- #{dirName}, that's good, it means we can possibly create it (if the preceding directories exist)."
+      $Project.logMsg(LOG_INFO, "Directory does not exist -- #{dirName}, that's good, it means we can possibly create it (if the preceding directories exist).")
       # We used to have a message here. Once we do some good logging functions we'll put it back in, no more puts
     end
 
     a = dirExists(dirList)
     if (a != false)
       # All but the last directory exist in the correct pathing
-      puts "createDirectory(): dirExists(dirList) was true"
+      $Project.logMsg(LOG_INFO, "dirExists(dirList) was true")
       lastDir = a[:lastDir]
-      puts YAML.dump(lastDir)
       newEntry = {:curName => dirName, :owner_id => lastDir.id, :createdBy => User.find_by_id(userId), :ftype => 'folder', :srcpath => dirList.map {|s| s.inspect}.join().gsub('"','') + dirName}
       newDir = DirectoryEntryHelper.create(newEntry)
     else
-      puts "createDirectory(): Some number of directories in dirList did not exist, so we couldn't create the directory"
+      $Project.logMsg(LOG_INFO, "Some number of directories in dirList did not exist, so we couldn't create the directory")
       # Some of the directories in dirList did not exist so we could not create the newest directory
       return false
     end
-    puts "createDirectory(): Successfully created #{dirName} -- " + dirList.map {|s| s.inspect}.join().gsub('"','') + dirName
+    $Project.logMsg(LOG_INFO, "createDirectory(): Successfully created #{dirName} -- " + dirList.map {|s| s.inspect}.join().gsub('"','') + dirName)
     #puts YAML.dump(newDir)
     # We successfully created the directory, return the directory model
     return newDir
@@ -627,26 +630,26 @@ class FileTreeX < DirectoryEntryHelper
   end
 
   def jsonTree(start = nil, parent = false, tprepend='', tappend='')
-    puts "jsonTree(): Called"
+    $Project.logMsg(LOG_FENTRY, "Called")
     begin
       if (start == nil)
         if (@newestEntry && @newestEntry == getNewestEntry() && @cachedJSONTree && @cachedJSONTree.length)
-          puts "jsonTree(): Returning cached entry"
+          $Project.logMsg(LOG_INFO, "Returning cached entry")
           return(@cachedJSONTree)
         end
-        puts "jsonTree(): Call start = getRootDirectory()"
+        $Project.logMsg(LOG_INFO, "start = getRootDirectory()")
         start = getRootDirectory()
         if (start == nil)
-          puts "jsonTree(): FileTreeX getRootDirectory() failed"
+          $Project.logMsg(LOG_ERROR, "FileTreeX getRootDirectory() failed")
           return
         end
-        puts "jsonTree(): @newestEntry does not match getNewestEntry(), setting @newestEntry"
+        $Project.logMsg(LOG_INFO, "@newestEntry does not match getNewestEntry(), setting @newestEntry")
         @newestEntry = getNewestEntry()
         @cachedJSONTree = nil
-        puts "jsonTree(): This ends the new code.."
+        $Project.logMsg(LOG_INFO, "This ends the new code..")
       end
 
-      puts "jsonTree(): This is after the start == nil block, we found the root directory.."
+      $Project.logMsg(LOG_INFO, "This is after the start == nil block, we found the root directory..")
       puts YAML.dump(start)
       puts YAML.dump(start.children)
       jsonString = []
@@ -710,6 +713,7 @@ class FileTreeX < DirectoryEntryHelper
       end
     rescue Exception => e
       $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
+      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(e))
       return(false)
     end
 
@@ -717,15 +721,16 @@ class FileTreeX < DirectoryEntryHelper
       if (/root/.match(parent))
         #We really only need ftroot0 here, as I found out through experimentation
         #Give me a break, I've been up for over 20 hours!
-        puts "jsonTree(): Matched root as parent, return flatten.to_json and set cachedJSONTree"
+        $Project.logMsg(LOG_INFO, "Matched root as parent, return flatten.to_json and set cachedJSONTree"
         @cachedJSONTree = jsonString.flatten.to_json
-        puts "jsonTree(): Saved cachedJSONTree, returning it"
+        $Project.logMsg(LOG_INFO, "Saved cachedJSONTree, returning it"
         return(@cachedJSONTree)
       end
-      puts "jsonTree(): Not root, returning without flattening.."
+      $Project.logMsg(LOG_INFO, "Not root, returning without flattening..")
       return(jsonString)
     rescue Exception => e
       $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
+      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(e))
       return(false)
     end
   end
@@ -743,17 +748,19 @@ class FileTreeX < DirectoryEntryHelper
       return("ft" + tprepend + type + "--" + digest + "--" + tappend)
     rescue Exception => e
       $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
+      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(e))
+      return(false)
     end
 
   end
 
   def procMsg(client, jsonMsg)
-    puts "Asked to process a message for myself: from client #{client.name}"
+    $Project.logMsg(LOG_INFO, "Asked to process a message for myself: from client #{client.name}"
     if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
-      puts "Found a function handler for  #{jsonMsg['command']}"
+      $Project.logMsg(LOG_INFO, "Found a function handler for  #{jsonMsg['command']}"
       self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg);
     elsif
-      puts "There is no function to handle the incoming command #{jsonMsg['command']}"
+      $Project.logMsg(LOG_ERROR, "There is no function to handle the incoming command #{jsonMsg['command']}"
     end
   end
 
