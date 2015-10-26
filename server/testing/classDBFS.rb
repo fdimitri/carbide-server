@@ -17,10 +17,17 @@ class DBFSBase
 
 
   def buildTree(path=@baseDirectory, name=nil)
+    $Project.logMsg(LOG_FENTRY, "Called")
+    $Project.logMsg(LOG_FENTRY, "path: " + path.to_s)
+    if (name)
+      $Project.logMsg(LOG_FENTRY, "name" + name.to_s)
+    end
+
     data = {'name' => (name || path)}
     data['children'] = children = []
 
     if (path == @baseDirectory)
+      $Project.logMsg(LOG_INFO, "data['type'] set to 'root'")
       data['type'] = 'root'
     end
     if (name)
@@ -28,11 +35,16 @@ class DBFSBase
       if (!(path[-1] == '/'))
         srcPath = path + "/" + name
       end
+      $Project.logMsg(LOG_INFO, "srcPath set to #{srcPath}")
+    else
+      srcPath = path
+      $Project.logMsg(LOG_INFO, "srcPath set to #{srcPath}")
     end
-    dirEntry =  DirectoryEntry.find_by_srcpath(srcPath)
 
+    dirEntry =  DirectoryEntry.find_by_srcpath(srcPath)
     if (!dirEntry)
-      $Project.logMsg(LOG_ERROR, "Unable to find directory entry by srcPath ${srcPath} -- this should never happen in DBFS")
+      $Project.logMsg(LOG_ERROR, "Unable to find directory entry by srcPath #{srcPath} -- this should never happen in DBFS")
+      abort("DBFS Failure")
       return(nil)
     end
 
