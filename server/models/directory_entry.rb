@@ -324,13 +324,14 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     $Project.logMsg(LOG_FENTRY, "Called")
     fromProcMsg = false
     fromdbBuildTree = false
-    if (DirectoryEntryHelper.find_by_srcpath(fileName))
-      return
-    end
     if (/procMsg/.match(caller_locations(1,1)[0].label))
       $Project.logMsg(LOG_INFO, "Called createFile() from procMsg_*")
       fromProcMsg = true
     end
+    if (fromProcMsg && DirectoryEntryHelper.find_by_srcpath(fileName))
+      return
+    end
+
     if (/dbbuildTree/.match(caller_locations(1,1)[0].label))
       fromdbBuildTree = true
       $Project.logMsg(LOG_INFO, "Called createFile() from dbBuildTree -- bypassing mutex")
