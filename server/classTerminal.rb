@@ -3,24 +3,21 @@ require 'yaml'
 require 'io/console'
 require 'termios'
 
-
 class TerminalBase
 	attr_accessor	:clients
 	attr_accessor	:termName
 
 	def initialize(project, termName)
 		$Project.logMsg(LOG_FENTRY, "Entering function")
-		$Project.logMsg(LOG_FPARAMS, "project:" + YAML.dump(project))
+		$Project.logMsg(LOG_FPARAMS, "project:" + $Project.dump(project))
 		$Project.logMsg(LOG_FPARAMS, "termName: #{termName}")
 		@project = project
 		@termName = termName
 		@clients = { }
 		@sizes = { }
-		$Project.logMsg(LOG_INFO, "Calling /bin/bash -l through PTY.spawn")
-		@output, @input, @pid = PTY.spawn("/bin/bash -l")
 		$Project.logMsg(LOG_INFO, "Terminal term #{termName} initialized")
+		@output, @input, @pid = PTY.spawn("/bin/bash -l")
 		@po = Thread.new {
-			$Project.logMsg(LOG_INFO, "Thread launched for terminal")
 			while 1 do
 				begin
 					buffer = @output.read_nonblock(1024)
@@ -34,7 +31,7 @@ class TerminalBase
 				#}
 			end
 		}
-		$Project.logMsg(LOG_INFO, "Launched new thread: " + YAML.dump(@po))
+		$Project.logMsg(LOG_INFO, "Launched new thread: " + $Project.dump(@po))
 		resizeSelf()
 	end
 
@@ -57,7 +54,7 @@ class TerminalBase
 		if (@clients[ws])
 			return(@clients[ws])
 		elsif
-			$Project.logMsg(LOG_ERROR, "Invalid client with socket: #{ws}")
+			puts "Invalid client with socket: #{ws}"
 			return FALSE
 		end
 	end
@@ -111,18 +108,41 @@ class TerminalBase
 	end
 
 	def remClient(client)
-		client.removeTerm(@termName)
-		@clients.delete(client.websocket)
-		termMsg = {
-			'commandSet' => 'term',
-			'command' => 'userLeave',
-			'userLeave' => {
-				'term' => @termName,
-				'user' => client.name,
-			},
-		}
-		clientString = termMsg.to_json
-		sendToClients(clientString)
+		$Project.logMsg(LOG_FENTRY, "Called")
+		$Project.logMsg(LOG_FPARAMS | LOG_DUMP, "client:\n" + $Project.dump(client))
+		badError = false
+		begin
+			if (client.respond_to?('removeTerminal'))
+				client.removeTerminal(@termName)
+			else
+				$Project.logMsg(LOG_ERROR, "Client does not respond to removeTerminal()")
+				badError = true
+			end
+			if (@clients[client.websocket])
+				@clients.delete(client.websocket)
+			else
+				$Project.logMsg(LOG_ERROR, "Client was not in the list..")
+				badError = true
+			end
+			if (badError == true)
+				$Project.logMsg(LOG_FRETURN, "Encountered weird errors, exiting")
+				return false
+			end
+			termMsg = {
+				'commandSet' => 'term',
+				'command' => 'userLeave',
+				'userLeave' => {
+					'term' => @termName,
+					'user' => client.name,
+				},
+			}
+			clientString = termMsg.to_json
+			sendToClients(clientString)
+		rescue Exception => e
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP, "Reached an exception:\n" + $Project.dump(e))
+			bt = caller_locations(10)
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_BACKTRACE, "Backtrace:\n" + $Project.dump(bt))
+		end
 	end
 
 	def sendToClients(msg)
@@ -161,8 +181,8 @@ class TerminalBase
 				minX = size['rows']
 			end
 		end
-		$Project.logMsg(LOG_INFO, "Resizing terminal to #{minX}x#{minY} via input.ioctl")
 		@input.ioctl(Termios::TIOCSWINSZ, [minX,minY,minX,minY].pack("SSSS"))
+		$Project.logMsg(LOG_INFO, "Resizing terminal to #{minX}x#{minY}")
 	end
 
 end
@@ -182,6 +202,7 @@ class Terminal < TerminalBase
 	end
 
 	def procMsg_inputChar(client, jsonMsg)
+		$Project.logMsg(LOG_FENTRY, "Called")
 		inputChar = jsonMsg['inputChar']
 		@input.print(inputChar['data'])
 		broadcastReply = {
@@ -198,19 +219,28 @@ class Terminal < TerminalBase
 	end
 
 	def procMsg_leaveTerminal(client, jsonMsg)
-		remClient(client)
-		clientReply = {
-			'commandSet' => 'term',
-			'commandReply' => true,
-			'command' => 'leaveTerminal',
-			'leaveTerminal' => {
-				'status' => TRUE,
+		$Project.logMsg(LOG_FENTRY, "Called")
+		begin
+			remClient(client)
+			clientReply = {
+				'commandSet' => 'term',
+				'commandReply' => true,
+				'command' => 'leaveTerminal',
+				'leaveTerminal' => {
+					'status' => TRUE,
+				}
 			}
-		}
-		clientString = clientReply.to_json
-		sendToClient(client, clientString)
-		@sizes.delete(client)
-		resizeSelf()
+			clientString = clientReply.to_json
+			sendToClient(client, clientString)
+			@sizes.delete(client)
+			resizeSelf()
+		rescue Exception => e
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP, "Reached an exception:\n" + $Project.dump(e))
+			bt = caller_locations(10)
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_BACKTRACE, "Backtrace:\n" + $Project.dump(bt))
+
+		end
+
 	end
 
 	def procMsg_resizeTerminal(client, jsonMsg)
@@ -221,9 +251,8 @@ class Terminal < TerminalBase
 			@sizes[client] = termSize
 			resizeSelf()
 		else
-			puts "There was no termsize rows/cols.."
-			puts YAML.dump(jsonMsg)
+			$Project.logMsg(LOG_WARN, "There was no termsize rows/cols..")
+			$Project.logMsg(LOG_WARN | LOG_DEBUG | LOG_DUMP, "jsonMsg:\n" + $Project.dump(jsonMsg))
 		end
 	end
-
 end

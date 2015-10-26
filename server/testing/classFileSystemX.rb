@@ -24,7 +24,7 @@ class FileSystemBase
   def getDirectoriesFromDirectory(directoryName)
     #puts "getDirectoriesFromDirectory(#{directoryName})"
     dirs = Dir.entries(directoryName).select { |f| ((File.directory? f) && f != '.' && f != '..')}
-    puts YAML.dump(dirs)
+    puts $Project.dump(dirs)
     return dirs
   end
 
@@ -57,7 +57,7 @@ class FileSystemBase
   end
 
   def createFileTree(tree)
-    # puts YAML.dump(tree)
+    # puts $Project.dump(tree)
     if (!tree['children'])
       #puts tree
       # This should never happen.. deprecate this entire if block, we never call
@@ -75,10 +75,10 @@ class FileSystemBase
         else
           x = DirectoryEntryHelper.find_by_srcpath(value['fullPath'])
           if (x)
-            YAML.dump(x.filechanges)
-            YAML.dump(x.filechanges.count)
+            $Project.dump(x.filechanges)
+            $Project.dump(x.filechanges.count)
           else
-            YAML.dump(x)
+            $Project.dump(x)
           end
           @fileTree.createFile(tree['name'])
         end

@@ -4,11 +4,11 @@ class FileChange < ActiveRecord::Base
 
   belongs_to :User, class_name: "User", primary_key: "User_id", foreign_key: "id"
   belongs_to :DirectoryEntry, class_name: "DirectoryEntryHelper", primary_key: "DirectoryEntry_id", foreign_key: "id"
-#  has_one :DirectoryEntry, class_name: "DirectoryEntryHelper", primary_key: "DirectoryEntry_id"
+  #  has_one :DirectoryEntry, class_name: "DirectoryEntryHelper", primary_key: "DirectoryEntry_id"
 
   def self.create(params)
     puts "Entering FileChange::create() function"
-    puts YAML.dump(params)
+    puts $Project.dump(params)
 
     if (params[:User_id].is_a?(Fixnum))
       #params[:User_id] = User.find_by_id(params[:User_id])
@@ -32,19 +32,19 @@ class FileChange < ActiveRecord::Base
     puts "FileChange::create(): Call new(params)"
     fileChange = FileChange.new(params)
     puts "FileChange::create(): Call save!"
-begin
-while (!fileChange.save!) do
-puts "Unable to fileChange.save.."
-end
-rescue Exception => e
-puts "!!!!!! fileChange.save error !!!!!!"
-puts YAML.dump(e)
-end
+    begin
+      while (!fileChange.save!) do
+        puts "Unable to fileChange.save.."
+      end
+    rescue Exception => e
+      puts "!!!!!! fileChange.save error !!!!!!"
+      puts $Project.dump(e)
+    end
 
     puts "FileChange::create(): save! called, returning fileChange entry.."
-    #puts YAML.dump(fileChange)
-    #puts YAML.dump(fileChange.methods)
-    #puts YAML.dump(fileChange.DirectoryEntry)
+    #puts $Project.dump(fileChange)
+    #puts $Project.dump(fileChange.methods)
+    #puts $Project.dump(fileChange.DirectoryEntry)
     #de = fileChange.DirectoryEntry
     return(fileChange)
   end
