@@ -328,7 +328,9 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       $Project.logMsg(LOG_INFO, "Called createFile() from procMsg_*")
       fromProcMsg = true
     end
-    if (fromProcMsg && DirectoryEntryHelper.find_by_srcpath(fileName))
+
+    if (fromProcMsg == true && DirectoryEntryHelper.find_by_srcpath(fileName))
+      $Project.logMsg(LOG_WARN, "fromProcMsg was set to true when perhaps it should not have been")
       return
     end
 
