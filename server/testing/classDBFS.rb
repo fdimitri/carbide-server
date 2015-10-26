@@ -32,6 +32,9 @@ class DBFSBase
       data['type'] = 'root'
     end
     if (name)
+      if (name[0] == "/")
+        name = name[1..-1]
+      end
       srcPath = path + name
       if (!(path[-1] == '/'))
         srcPath = path + "/" + name
