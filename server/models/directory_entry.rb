@@ -334,7 +334,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       return
     end
 
-    if (/dbbuildTree/.match(caller_locations(1,1)[0].label))
+    if (/db/.match(caller_locations(1,1)[0].label))
       fromdbBuildTree = true
       $Project.logMsg(LOG_INFO, "Called createFile() from dbBuildTree -- bypassing mutex")
       return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg, fromdbBuildTree))

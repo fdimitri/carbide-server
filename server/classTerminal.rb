@@ -109,15 +109,24 @@ class TerminalBase
 
 	def remClient(client)
 		$Project.logMsg(LOG_FENTRY, "Called")
-		$Project.logMsg(LOG_FPARAMS | F_DUMP, "client:\n" + $Project.dump(client))
+		$Project.logMsg(LOG_FPARAMS | LOG_DUMP, "client:\n" + $Project.dump(client))
+		badError = false
 		begin
 			if (client.respond_to?(removeTerm))
 				client.removeTerm(@termName)
+			else
+				$Project.logMsg(LOG_ERROR, "Client does not respond to removeTerm()")
+				badError = true
 			end
 			if (@clients[client.websocket])
 				@clients.delete(client.websocket)
 			else
-				$Project.logMsg(LOG_WARN, "Client was not in the list..")
+				$Project.logMsg(LOG_ERROR, "Client was not in the list..")
+				badError = true
+			end
+			if (badError == true)
+				$Project.logMsg(LOG_FRETURN, "Encountered weird errors, exiting")
+				return false
 			end
 			termMsg = {
 				'commandSet' => 'term',
