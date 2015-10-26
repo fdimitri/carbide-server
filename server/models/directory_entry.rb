@@ -378,7 +378,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
           doc = @Project.addDocument(fileName, x)
         end
         if (data && (data.is_a?(String) || data.is_a?(Array)))
-          $Project.logMsg(LOG_INFO "Calling getDocument/setContents");
+          $Project.logMsg(LOG_INFO, "Calling getDocument/setContents");
           doc = @Project.getDocument(fileName)
           doc.setContents(data)
         end
@@ -475,8 +475,9 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
 
       rescue Exception => e
         $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
-        $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(caller))
         $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
+        bt = caller_locations(10)
+        $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_BACKTRACE, "Backtrace:\n" + YAML.dump(bt))
         exit
         return
       end
