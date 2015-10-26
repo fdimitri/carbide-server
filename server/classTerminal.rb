@@ -3,18 +3,9 @@ require 'yaml'
 require 'io/console'
 require 'termios'
 
-
-
-
-
-
-
 class TerminalBase
-		
 	attr_accessor	:clients
-		
 	attr_accessor	:termName
-		
 
 	def initialize(project, termName)
 		$Project.logMsg(LOG_FENTRY, "Entering function")
@@ -117,23 +108,32 @@ class TerminalBase
 	end
 
 	def remClient(client)
-	    $Project.logMsg(LOG_FENTRY, "Called")
-		client.removeTerm(@termName)
-		if (@clients[client.websocket])
-		    @clients.delete(client.websocket)
-		else
-		    $Project.logMsg(LOG_WARN, "Client was not in the list..")
+		$Project.logMsg(LOG_FENTRY, "Called")
+		$Project.logMsg(LOG_FPARAMS | F_DUMP, "client:\n" + YAML.dump(client))
+		begin
+			if (client.respond_to?(removeTerm))
+				client.removeTerm(@termName)
+			end
+			if (@clients[client.websocket])
+				@clients.delete(client.websocket)
+			else
+				$Project.logMsg(LOG_WARN, "Client was not in the list..")
+			end
+			termMsg = {
+				'commandSet' => 'term',
+				'command' => 'userLeave',
+				'userLeave' => {
+					'term' => @termName,
+					'user' => client.name,
+				},
+			}
+			clientString = termMsg.to_json
+			sendToClients(clientString)
+		rescue Exception => e
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP, "Reached an exception:\n" + YAML.dump(e))
+			bt = caller_locations(10)
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_BACKTRACE, "Backtrace:\n" + YAML.dump(bt))
 		end
-		termMsg = {
-			'commandSet' => 'term',
-			'command' => 'userLeave',
-			'userLeave' => {
-				'term' => @termName,
-				'user' => client.name,
-			},
-		}
-		clientString = termMsg.to_json
-		sendToClients(clientString)
 	end
 
 	def sendToClients(msg)
@@ -236,5 +236,4 @@ class Terminal < TerminalBase
 			puts YAML.dump(jsonMsg)
 		end
 	end
-
 end

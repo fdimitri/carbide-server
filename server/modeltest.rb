@@ -52,7 +52,7 @@ Bundler.require(*Rails.groups)
 require 'devise/orm/active_record'
 
 puts Gem.loaded_specs.values.map {|x| "#{x.name} #{x.version}"}
-	
+
 
 Dir["./class*rb"].each { |file|
   puts "Require: " + file
@@ -106,9 +106,9 @@ class ProjectServer
   attr_accessor	:FileTree
   attr_accessor :taskBoards
   attr_accessor :webServer
-  public 
+  public
   def logMsg(logLevel, msg)
-	if ((logLevel & @logLevel) == 0 ) 
+	if ((logLevel & @logLevel) == 0 )
 		return(false)
 	end
 	levelStr = String.new
@@ -275,7 +275,7 @@ class ProjectServer
     }
     vMsg = validateMsg(createChatRoomValidation, msg)
     if (!vMsg['status'])
-      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+      generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
       return false
     end
 
@@ -318,7 +318,7 @@ class ProjectServer
     }
     vMsg = validateMsg(createTaskBoardValidation, msg)
     if (!vMsg['status'])
-      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+      generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
       return false
     end
 
@@ -361,7 +361,7 @@ class ProjectServer
     }
     vMsg = validateMsg(createTaskBoardValidation, msg)
     if (!vMsg['status'])
-      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+      generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
       return false
     end
 
@@ -404,7 +404,7 @@ class ProjectServer
     }
     vMsg = validateMsg(openTerminalValidation, msg)
     if (!vMsg['status'])
-      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+      generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
       return false
     end
 
@@ -421,7 +421,7 @@ class ProjectServer
     @terminals[termName].addClient(client, ws)
   end
 
-  def generateError(client, hash, status, errorReasons, commandRequested)
+  def generateError(ws, hash, status, errorReasons, commandRequested)
     clientReply = {
       'hash' => hash,
       'status' => status,
@@ -561,7 +561,7 @@ class ProjectServer
     end
     vMsg = validateMsg(downloadDocumentValidation, msg);
     if (!vMsg['status'])
-      generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+      generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'downloadDocument')
       return false
     end
 
@@ -830,14 +830,23 @@ class ProjectServer
   end
 
   def removeClient(ws)
-    puts "Remove client -- we should inform chat and document listeners of this event"
+		$Project.logMsg(LOG_INFO, "Removing client -- informing listeners of this event")
     client = @clients[ws]
+		$Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(client))
+		$Project.logMsg(LOG_INFO, "Iterating through client.terms.each")
+
     client.chats.each do |key, value|
-      puts "Remove client #{client.name} from Chat #{value.roomName}"
+			$Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(key))
+			$Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(value))
+      $Project.logMsg(LOG_INFO, "Remove client #{client.name} from Chat #{value.termName}")
       value.remClient(client)
     end
+
+		$Project.logMsg(LOG_INFO, "Iterating through client.terms.each")
     client.terms.each do |key, value|
-      puts "Remove client #{client.name} from Terminal #{value.termName}"
+			$Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(key))
+			$Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(value))
+      $Project.logMsg(LOG_INFO, "Remove client #{client.name} from Terminal #{value.termName}")
       value.remClient(client)
     end
     client = @clients.delete(ws);
