@@ -21,7 +21,7 @@ development:
   password: bu:tln563
   socket: /var/lib/mysql/mysql.sock
   timeout: 300000
-  pool: 500
+  pool: 5000
   #host: 127.0.0.1
   #port: 3306
   reconnect: true

@@ -54,6 +54,9 @@ class DBFSBase
     end
     buildThreadList = []
     dirEntry.children.each do |entry|
+      while (buildThreadList.length > 10)
+        sleep(1)
+      end
       buildThreadList << Thread.new do
         Thread.current['children'] = []
         if (entry.ftype == 'folder')
@@ -70,7 +73,9 @@ class DBFSBase
     if (buildThreadList.length > 0)
       buildThreadList.each do |cthr|
         cthr.join
-        children << cthr['children']
+        cthr['children'].each do |child|
+          children << child
+        end
       end
     end
     return data
