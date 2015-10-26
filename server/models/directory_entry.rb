@@ -321,7 +321,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
 
 
   def createFile(fileName, userId=nil, data=nil, mkdirp = false)
-    $Project.logMsg(LOG_FENTRY, "Called, waiting for mutex..")
+    $Project.logMsg(LOG_FENTRY, "Called")
     fromProcMsg = false
     if (DirectoryEntryHelper.find_by_srcpath(fileName))
       return
@@ -330,12 +330,12 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       $Project.logMsg(LOG_INFO, "Called createFile() from procMsg_*")
       fromProcMsg = true
     end
-    if (/dbBuildTree/.match(caller_locations(1,1)[0].label))
-      $Project.logMsg(LOG_INFO, "Called createFile() from dbBuildTree")
+    if (/dbbuildTree/.match(caller_locations(1,1)[0].label))
+      $Project.logMsg(LOG_INFO, "Called createFile() from dbBuildTree -- bypassing mutex")
       return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg))
     end
 
-
+    $Project.logMsg(LOG_INFO, "Waiting for mutex.")
     @createFileMutex.synchronize {
       $Project.logMsg(LOG_INFO, "Got mutex, running createFileBase() ")
       return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg))

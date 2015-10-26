@@ -124,7 +124,12 @@ class ProjectServer
 		callingLine = caller.first.inspect[/line.*(\d+)/,1]
 		logMsg = "[#{timeStr}] (#{levelStr}) #{callingFunction}:#{callingLine} (): #{msg}"
 		puts logMsg
-		sle = ServerLogEntry.create({entrytime: Time.now, flags: logLevel, source: "#{callingFunction}:#{callingLine}", message: msg})
+		sleParams = {
+			:entrytime => Time.now,
+			:flags => logLevel,
+			:source => "#{callingFunction}:#{callingLine}",
+			:message => msg}
+		sle = ServerLogEntry.create(sleParams)
 	end
 
 
