@@ -92,7 +92,7 @@ class DBFSBase
       end
     rescue Exception => e
       $Project.logMsg(LOG_EXCEPTION, "Caught Exception!")
-      $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, "Exception:\n" + YAML.dump(e))
+      $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, "Exception:\n" + $Project.dump(e))
 
     end
     return data

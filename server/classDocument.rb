@@ -58,7 +58,7 @@ class DocumentBase
       digest = OpenSSL::Digest::MD5.hexdigest(data)
       return digest
     end
-    puts "Data passed to us for hashing was not a string, we could use .to_s, to_json, or even YAML.dump in this case -- to be determined"
+    puts "Data passed to us for hashing was not a string, we could use .to_s, to_json, or even $Project.dump in this case -- to be determined"
     return false
   end
 
@@ -111,7 +111,7 @@ class DocumentBase
 
   def setContents(data)
     $Project.logMsg(LOG_FENTRY, "Entering function .. data is of class " + data.class.to_s)
-    $Project.logMsg(LOG_FPARAMS, "Data: " + YAML.dump(data))
+    $Project.logMsg(LOG_FPARAMS, "Data: " + $Project.dump(data))
     if (data.is_a?(String))
       data = data.gsub("\r\n","\n").gsub("\r","")
       @data = data.split("\n")
@@ -147,7 +147,7 @@ class Document < DocumentBase
         wait = false
         @t.each_pair do |key, thread|
           puts "Key: " + key.to_s
-          puts "Value: " + YAML.dump(thread)
+          puts "Value: " + $Project.dump(thread)
           status = thread.status
           case (status)
           when false
@@ -163,7 +163,7 @@ class Document < DocumentBase
             puts "Waiting on current write thread before spinning out another one"
             wait = true
           else
-            puts "Unknown thread status: " + YAML.dump(status)
+            puts "Unknown thread status: " + $Project.dump(status)
           end
         end
         if (wait)
@@ -187,7 +187,7 @@ class Document < DocumentBase
         d = d.sub("\n","").sub("\r","")
       else
         $Project.logMsg(LOG_ERROR, "Ran into an error with the data array -- element is not a string. Type is: " + d.class.to_s)
-        $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(d));
+        $Project.logMsg(LOG_ERROR | LOG_DUMP, $Project.dump(d));
       end
     }
     begin
@@ -206,7 +206,7 @@ class Document < DocumentBase
       }
     rescue Exception => e
       puts "There was an error!"
-      puts YAML.dump(e)
+      puts $Project.dump(e)
       puts "Error: " + e.message
       puts "Backtrace: " + e.backtrace
     end
@@ -354,8 +354,8 @@ class Document < DocumentBase
   def procMsg_insertDataSingleLine(client, jsonMsg)
     $Project.logMsg(LOG_FENTRY, "Called")
     begin
-      $Project.logMsg(LOG_FPARAMS, "Client:\n" + YAML.dump(client))
-      $Project.logMsg(LOG_FPARAMS, "jsonMsg type: #{jsonMsg.class.to_s}, dump:\n" + YAML.dump(jsonMsg))
+      $Project.logMsg(LOG_FPARAMS, "Client:\n" + $Project.dump(client))
+      $Project.logMsg(LOG_FPARAMS, "jsonMsg type: #{jsonMsg.class.to_s}, dump:\n" + $Project.dump(jsonMsg))
       jsonMsg['hash'] = 0xFF
       hash = 0xFF
       insertDataSingleLineValidation = {
@@ -391,15 +391,15 @@ class Document < DocumentBase
       vMsg = $Project.validateMsg(insertDataSingleLineValidation, jsonMsg)
       if (!vMsg['status'])
         $Project.logMsg(LOG_ERROR, "Unable to validate message")
-        $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(vMsg))
+        $Project.logMsg(LOG_ERROR | LOG_DUMP, $Project.dump(vMsg))
         $Project.generateError(client, hash, vMsg['status'], vMsg['errorReasons'], 'createTerminal')
         return false
       end
       $Project.logMsg(LOG_INFO, "Message successfully validated")
     rescue Exception => e
-      puts YAML.dump(e)
+      puts $Project.dump(e)
       $Project.logMsg(LOG_ERROR, "We had an exception (Section 0x00)!")
-      $Project.logMsg(LOG_ERROR, YAML.dump(e))
+      $Project.logMsg(LOG_ERROR, $Project.dump(e))
     end
 
     begin
@@ -416,20 +416,20 @@ class Document < DocumentBase
       end
 
     rescue Exception => e
-      puts YAML.dump(e)
+      puts $Project.dump(e)
       $Project.logMsg(LOG_ERROR, "We had an exception (Section 1)!")
-      $Project.logMsg(LOG_ERROR, YAML.dump(e))
+      $Project.logMsg(LOG_ERROR, $Project.dump(e))
     end
 
     begin
       $Project.logMsg(LOG_INFO, "Sending message to self :sendMsg_cInsertDataSingleLine..")
-      $Project.logMsg(LOG_INFO | LOG_DEBUG | LOG_DUMP, YAML.dump(rval))
+      $Project.logMsg(LOG_INFO | LOG_DEBUG | LOG_DUMP, $Project.dump(rval))
       params = rval['replyParams']
       self.send(:sendMsg_cInsertDataSingleLine, *params)
     rescue Exception => e
-      puts YAML.dump(e)
+      puts $Project.dump(e)
       $Project.logMsg(LOG_ERROR, "We had an exception (Section 2)!")
-      $Project.logMsg(LOG_ERROR, YAML.dump(e))
+      $Project.logMsg(LOG_ERROR, $Project.dump(e))
     end
   end
 
@@ -447,7 +447,7 @@ class Document < DocumentBase
       end
       $Project.logMsg(LOG_INFO, "odata is: " + odata.gsub("\n", "\\n").gsub("\r","\\r").inspect)
       # puts "YAML @data"
-      # puts YAML.dump(@data)
+      # puts $Project.dump(@data)
       # puts "insertDataSingleLine(): Called #{jsonMsg}"
       # puts "Odata is: " + odata.inspect
       if ((odata == "\n" || odata == "\r\n" || odata == "\r"))
@@ -464,7 +464,7 @@ class Document < DocumentBase
           @data.insert(line, "")
           #@data.insert(line+1, myStr) #I think this is incorrect
           # puts "YAML @data"
-          # puts YAML.dump(@data)
+          # puts $Project.dump(@data)
           return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
         end
         if (myStr && myStr.length)
@@ -488,7 +488,7 @@ class Document < DocumentBase
           # puts "data.fetch(line) is " + @data.fetch(line).to_s
           # puts "data.fetch(line + 1) is " + @data.fetch(line + 1).to_s
           # puts "YAML @data"
-          # puts YAML.dump(@data)
+          # puts $Project.dump(@data)
           return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
         end
       end
@@ -501,7 +501,7 @@ class Document < DocumentBase
       return ( {'success' => 'true',  'replyParams' => [ client, @name, line, odata, char, length, @data[line] ] } )
     rescue Exception => e
       $Project.logMsg(LOG_ERROR, "We had an exception!")
-      $Project.logMsg(LOG_ERROR | LOG_DUMP, YAML.dump(e))
+      $Project.logMsg(LOG_ERROR | LOG_DUMP, $Project.dump(e))
     end
   end
 
@@ -564,7 +564,7 @@ class Document < DocumentBase
   def sendMsg_cDeleteDataMultiLine(client, document, ml)
     ml['document'] = document;
     ml['sourceUser'] = client.name;
-    puts YAML.dump(ml)
+    puts $Project.dump(ml)
     clientReply = {
       'commandSet' => 'document',
       'command' => 'deleteDataMultiLine',
@@ -572,9 +572,9 @@ class Document < DocumentBase
       'deleteDataMultiLine' => ml,
       #Temporary, each command should come in with a hash so we can deal with fails like this and rectify them
     }
-    puts YAML.dump(clientReply)
+    puts $Project.dump(clientReply)
     clientString = clientReply.to_json
-    puts YAML.dump(clientString)
+    puts $Project.dump(clientString)
     @project.sendToClientsListeningExceptWS(client.websocket, document, clientString)
 
   end
@@ -587,7 +587,7 @@ class Document < DocumentBase
       return FALSE
     end
     if (data === "\n")
-      # puts YAML.dump(@data)
+      # puts $Project.dump(@data)
       # -- @data.fetch(line, @data.fetch(line).slice!(char))
       if (@data.length > (line + 1))
         oldLine = @data.fetch(line) + @data.fetch(line+1)
@@ -597,7 +597,7 @@ class Document < DocumentBase
         puts "Deleting line at " + (line + 1).to_s
         @data.delete_at(line + 1)
       end
-      # puts YAML.dump(@data)
+      # puts $Project.dump(@data)
       return true
     end
     @str = @data.fetch(line).to_str

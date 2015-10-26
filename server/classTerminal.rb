@@ -9,7 +9,7 @@ class TerminalBase
 
 	def initialize(project, termName)
 		$Project.logMsg(LOG_FENTRY, "Entering function")
-		$Project.logMsg(LOG_FPARAMS, "project:" + YAML.dump(project))
+		$Project.logMsg(LOG_FPARAMS, "project:" + $Project.dump(project))
 		$Project.logMsg(LOG_FPARAMS, "termName: #{termName}")
 		@project = project
 		@termName = termName
@@ -31,7 +31,7 @@ class TerminalBase
 				#}
 			end
 		}
-		$Project.logMsg(LOG_INFO, "Launched new thread: " + YAML.dump(@po))
+		$Project.logMsg(LOG_INFO, "Launched new thread: " + $Project.dump(@po))
 		resizeSelf()
 	end
 
@@ -109,7 +109,7 @@ class TerminalBase
 
 	def remClient(client)
 		$Project.logMsg(LOG_FENTRY, "Called")
-		$Project.logMsg(LOG_FPARAMS | F_DUMP, "client:\n" + YAML.dump(client))
+		$Project.logMsg(LOG_FPARAMS | F_DUMP, "client:\n" + $Project.dump(client))
 		begin
 			if (client.respond_to?(removeTerm))
 				client.removeTerm(@termName)
@@ -130,9 +130,9 @@ class TerminalBase
 			clientString = termMsg.to_json
 			sendToClients(clientString)
 		rescue Exception => e
-			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP, "Reached an exception:\n" + YAML.dump(e))
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP, "Reached an exception:\n" + $Project.dump(e))
 			bt = caller_locations(10)
-			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_BACKTRACE, "Backtrace:\n" + YAML.dump(bt))
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_BACKTRACE, "Backtrace:\n" + $Project.dump(bt))
 		end
 	end
 
@@ -226,9 +226,9 @@ class Terminal < TerminalBase
 			@sizes.delete(client)
 			resizeSelf()
 		rescue Exception => e
-			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP, "Reached an exception:\n" + YAML.dump(e))
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP, "Reached an exception:\n" + $Project.dump(e))
 			bt = caller_locations(10)
-			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_BACKTRACE, "Backtrace:\n" + YAML.dump(bt))
+			$Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_BACKTRACE, "Backtrace:\n" + $Project.dump(bt))
 
 		end
 
@@ -243,7 +243,7 @@ class Terminal < TerminalBase
 			resizeSelf()
 		else
 			$Project.logMsg(LOG_WARN, "There was no termsize rows/cols..")
-			$Project.logMsg(LOG_WARN | LOG_DEBUG | LOG_DUMP, "jsonMsg:\n" + YAML.dump(jsonMsg))
+			$Project.logMsg(LOG_WARN | LOG_DEBUG | LOG_DUMP, "jsonMsg:\n" + $Project.dump(jsonMsg))
 		end
 	end
 end

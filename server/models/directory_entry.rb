@@ -34,15 +34,15 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
 
   def recvMsg_insertDataSingleLine(client, jsonMsg)
     $Project.logMsg(LOG_FENTRY, "Entered function")
-    $Project.logMsg(LOG_FPARAMS, "client: " + YAML.dump(client))
-    $Project.logMsg(LOG_FPARAMS, "jsonMsg: " + YAML.dump(jsonMsg))
+    $Project.logMsg(LOG_FPARAMS, "client: " + $Project.dump(client))
+    $Project.logMsg(LOG_FPARAMS, "jsonMsg: " + $Project.dump(jsonMsg))
     line = jsonMsg['insertDataSingleLine']['line'];
     odata = jsonMsg['insertDataSingleLine']['data']
     data = odata.sub("\r", "")
     char = jsonMsg['insertDataSingleLine']['ch'].to_i
     if (!data.is_a?(String))
       $Project.logMsg(LOG_ERROR, "Data was not a string, it was: " + data.class.to_s)
-      $Project.logMsg(LOG_ERROR | LOG_VERBOSE | LOG_DEBUG | LOG_DUMP, "Data dump: " + YAML.dump(data))
+      $Project.logMsg(LOG_ERROR | LOG_VERBOSE | LOG_DEBUG | LOG_DUMP, "Data dump: " + $Project.dump(data))
       return false
     end
     length = data.length
@@ -85,7 +85,7 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
       digest = OpenSSL::Digest::MD5.hexdigest(data)
       return digest
     end
-    $Project.logMsg(LOG_ERROR, "Data passed to me was not a string, try using .to_s, .inspect, .to_json, or YAML.dump() to get a hash")
+    $Project.logMsg(LOG_ERROR, "Data passed to me was not a string, try using .to_s, .inspect, .to_json, or $Project.dump() to get a hash")
     return false
   end
 
@@ -102,13 +102,13 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
 
   def calcCurrent()
     $Project.logMsg(LOG_FENTRY, "Entered function, operating on #{self.curName} #{self.id}")
-    $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, "Information about myself: " + YAML.dump(self))
+    $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, "Information about myself: " + $Project.dump(self))
     #This function takes us from revision 0 to current, we have no "key frames", but those will be added in the future to reduce processing time
     document = getPrivateDocument()
     $Project.logMsg(LOG_DEBUG, "Got a private document, processing self.filechanges.each")
     self.filechanges.each do |change|
       $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "Processing respond_to?s for a change: " + change.changeType)
-      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, YAML.dump(change))
+      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, $Project.dump(change))
       if (self.respond_to?("cmd_" + change.changeType))
         $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "self.cmd_ exists for this change, calling it -- we will NOT call document.do_ directly in this case")
         self.send("cmd_" + change.changeType, document, change)
@@ -143,21 +143,21 @@ class DirectoryEntryCommandProcessor < DirectoryEntry
 
   def cmd_setContents(document, change)
     $Project.logMsg(LOG_FENTRY, "Entering function")
-    $Project.logMsg(LOG_FPARAMS, "Document: " + YAML.dump(document))
-    $Project.logMsg(LOG_FPARAMS, "Change: " + YAML.dump(change))
+    $Project.logMsg(LOG_FPARAMS, "Document: " + $Project.dump(document))
+    $Project.logMsg(LOG_FPARAMS, "Change: " + $Project.dump(change))
     if (!change.changeData.is_a?(String))
       $Project.logMsg(LOG_ERROR, "Passed incorrectly formatted changeData -- should be a string but it isn't")
-      $Project.logMsg(LOG_ERROR | LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, YAML.dump(change))
+      $Project.logMsg(LOG_ERROR | LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, $Project.dump(change))
       $Project.logMsg(LOG_ERROR | LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, change.inspect.to_s)
       document.setContents('SEVERE ERROR!! PASSED INCORRECT CHANGEDATA!')
       return false
     end
     data = change.changeData
     if (false && data.is_json?)
-      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "Setting to JSON.parse(data): " + YAML.dump(JSON.parse(data)))
+      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "Setting to JSON.parse(data): " + $Project.dump(JSON.parse(data)))
       document.setContents((JSON.parse(data).split("\n")))
     else
-      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, "Setting to raw data: " + YAML.dump(data))
+      $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, "Setting to raw data: " + $Project.dump(data))
       $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "Data is a " + data.class.to_s)
       $Project.logMsg(LOG_DEBUG | LOG_VERBOSE | LOG_DUMP, "Inspected data: " + data.inspect.to_s)
       #data = data[1..-2].split("\n")
@@ -289,7 +289,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     if (exDir = DirectoryEntry.find_by_srcpath(srcPath))
       $Project.logMsg(LOG_INFO | LOG_VERBOSE, "Found #{srcPath} by srcPath in the database!")
       $Project.logMsg(LOG_FRETURN, "Exiting function, returning directory information");
-      $Project.logMsg(LOG_FRPARAM, "Return value: " + YAML.dump({:lastDir => exDir}));
+      $Project.logMsg(LOG_FRPARAM, "Return value: " + $Project.dump({:lastDir => exDir}));
       return{:lastDir => exDir}
     end
     $Project.logMsg(LOG_INFO | LOG_VERBOSE, "Unable to find directory #{srcPath} in the database")
@@ -359,7 +359,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
         $Project.logMsg(LOG_INFO, "fromdbBuildTree is true, expecting there to be filechanges in most documents..")
         $Project.logMsg(LOG_INFO, "fileName: #{fileName}")
         $Project.logMsg(LOG_INFO, "Number of changes: " + x.filechanges.count.to_s)
-        $Project.logMsg(LOG_DEBUG | LOG_DUMP, "DEH find_by_srcpath:\n", YAML.dump(x))
+        $Project.logMsg(LOG_DEBUG | LOG_DUMP, "DEH find_by_srcpath:\n", $Project.dump(x))
       end
       if (x)
         if (x.filechanges.count > 0)
@@ -367,7 +367,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
           $Project.logMsg(LOG_INFO, "Current filechanges.count: " + x.filechanges.count.to_s)
           rval = x.calcCurrent()
           $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "calcCurrent gave us:")
-          $Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(rval))
+          $Project.logMsg(LOG_DEBUG | LOG_DUMP, $Project.dump(rval))
 
           $Project.logMsg(LOG_INFO, "Setting data to rval[:data] from calcCurrent()")
           data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
@@ -437,8 +437,8 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       end
     rescue Exception => e
       $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
-      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(caller))
-      $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
+      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, $Project.dump(caller))
+      $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, $Project.dump(e))
       exit
       return
     end
@@ -466,7 +466,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
           $Project.logMsg(LOG_INFO, "Current filechanges.count: " + x.filechanges.count.to_s)
           rval = x.calcCurrent()
           $Project.logMsg(LOG_DEBUG | LOG_VERBOSE, "calcCurrent gave us:")
-          $Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(rval))
+          $Project.logMsg(LOG_DEBUG | LOG_DUMP, $Project.dump(rval))
 
           $Project.logMsg(LOG_INFO, "Setting data to rval[:data] from calcCurrent()")
           data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
@@ -475,9 +475,9 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
 
       rescue Exception => e
         $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
-        $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
+        $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, $Project.dump(e))
         bt = caller_locations(10)
-        $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_BACKTRACE, "Backtrace:\n" + YAML.dump(bt))
+        $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_BACKTRACE, "Backtrace:\n" + $Project.dump(bt))
         exit
         return
       end
@@ -507,7 +507,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
           }
         else
           $Project.logMsg(LOG_INFO | LOG_ERROR, "Unable to complete request for client, errors detected")
-          $Project.logMsg(LOG_ERROR | LOG_DEBUG | LOG_DUMP, "clientErrors:\n" + YAML.dump(clientErrors))
+          $Project.logMsg(LOG_ERROR | LOG_DEBUG | LOG_DUMP, "clientErrors:\n" + $Project.dump(clientErrors))
           replyWith = {
             'status' => false,
             'errorReasons' => clientErrors,
@@ -519,8 +519,8 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       return true
     rescue Exception => e
       $Project.logMsg(LOG_EXCEPTION, "Caught exception: ")
-      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(caller))
-      $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, YAML.dump(e))
+      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, $Project.dump(caller))
+      $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, $Project.dump(e))
       abort("Serious error")
       return
     end
@@ -571,8 +571,8 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
 
   def createDirectoryBase(dirList, dirName, userId=nil)
     $Project.logMsg(LOG_FENTRY, "Called")
-    $Project.logMsg(LOG_FPARAMS, "dirList:\n" + YAML.dump(dirList))
-    $Project.logMsg(LOG_FPARAMS, "dirName:\n" + YAML.dump(dirName))
+    $Project.logMsg(LOG_FPARAMS, "dirList:\n" + $Project.dump(dirList))
+    $Project.logMsg(LOG_FPARAMS, "dirName:\n" + $Project.dump(dirName))
 
     # All but the last directory must exist, as opposed to mkdir which will automagically create directories a la "mkdir -p"
     # Ie if you want /server/testing/logs, you'd need to create /server, then /server/testing, then /server/testing/logs when calling this function
@@ -587,7 +587,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     a = dirExists(fullDirectory)
     if (a != false)
       $Project.logMsg(LOG_WARN, "Possible error: This directory #{dirName} has already been created! #{fullDirectory.inspect}")
-      $Project.logMsg(LOG_DEBUG | LOG_DUMP, YAML.dump(a[:lastDir]))
+      $Project.logMsg(LOG_DEBUG | LOG_DUMP, $Project.dump(a[:lastDir]))
       # The directory has already been created/properly exists, return the directory model to the calling function}
       return a[:lastDir]
     else
@@ -608,7 +608,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       return false
     end
     $Project.logMsg(LOG_INFO, "createDirectory(): Successfully created #{dirName} -- " + dirList.map {|s| s.inspect}.join().gsub('"','') + dirName)
-    #puts YAML.dump(newDir)
+    #puts $Project.dump(newDir)
     # We successfully created the directory, return the directory model
     return newDir
   end
@@ -663,7 +663,7 @@ class FileTreeX < DirectoryEntryHelper
       end
 
       $Project.logMsg(LOG_INFO, "This is after the start == nil block, we found the root directory..")
-      $Project.logMsg(LOG_DEBUG | LOG_DUMP, "start:\n" + YAML.dump(start))
+      $Project.logMsg(LOG_DEBUG | LOG_DUMP, "start:\n" + $Project.dump(start))
       jsonString = []
       if (start == getRootDirectory())
         type = 'root'
@@ -725,7 +725,7 @@ class FileTreeX < DirectoryEntryHelper
       end
     rescue Exception => e
       $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
-      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(e))
+      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, $Project.dump(e))
       return(false)
     end
 
@@ -742,7 +742,7 @@ class FileTreeX < DirectoryEntryHelper
       return(jsonString)
     rescue Exception => e
       $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
-      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(e))
+      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, $Project.dump(e))
       return(false)
     end
   end
@@ -761,7 +761,7 @@ class FileTreeX < DirectoryEntryHelper
       return("ft" + tprepend + type + "--" + digest + "--" + tappend)
     rescue Exception => e
       $Project.logMsg(LOG_EXCEPTION, "Caught exception #{e.type.inspect} with message of #{e.message.inspect}")
-      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(e))
+      $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, $Project.dump(e))
       return(false)
     end
   end
@@ -793,7 +793,7 @@ class FileTreeX < DirectoryEntryHelper
 
   def procMsg_getFileTreeModalJSON(client, jsonMsg)
     $Project.logMsg(LOG_FENTRY, "Called")
-    #puts YAML.dump(jsonTree(nil, false, '', 'modal'))
+    #puts $Project.dump(jsonTree(nil, false, '', 'modal'))
     clientReply = {
       'commandSet' => 'FileTree',
       'command' => 'setFileTreeModalJSON',
@@ -1086,7 +1086,7 @@ class FileTreeX < DirectoryEntryHelper
   end
 
   def procMsg_deleteEntry(client, jsonMsg)
-    STDERR.puts YAML.dump(jsonMsg)
+    STDERR.puts $Project.dump(jsonMsg)
     tData = jsonMsg['deleteEntry']
     srcPath = tData['srcPath']
     # if (!/^\//.match(srcPath))

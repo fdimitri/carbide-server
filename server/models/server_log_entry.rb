@@ -13,18 +13,18 @@ class ServerLogEntry < ActiveRecord::Base
 
 	def create(params)
 		logEntry = ServerLogEntry.new(params)
-		puts YAML.dump(params)
-		puts YAML.dump(logEntry)
+		puts $Project.dump(params)
+		puts $Project.dump(logEntry)
 			begin
-				puts YAML.dump(logEntry)
+				puts $Project.dump(logEntry)
 				if (!(logEntry = logEntry.save!))
 					puts "Unable to save!"
 				end
 				die
 			rescue Exception => e
   			bt = caller_locations(10)
-				puts YAML.dump(bt)
-				puts YAML.dump(e)
+				puts $Project.dump(bt)
+				puts $Project.dump(e)
 				die
 			end
  		return(logEntry)

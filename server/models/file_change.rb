@@ -8,7 +8,7 @@ class FileChange < ActiveRecord::Base
 
   def self.create(params)
     puts "Entering FileChange::create() function"
-    puts YAML.dump(params)
+    puts $Project.dump(params)
 
     if (params[:User_id].is_a?(Fixnum))
       #params[:User_id] = User.find_by_id(params[:User_id])
@@ -38,13 +38,13 @@ class FileChange < ActiveRecord::Base
       end
     rescue Exception => e
       puts "!!!!!! fileChange.save error !!!!!!"
-      puts YAML.dump(e)
+      puts $Project.dump(e)
     end
 
     puts "FileChange::create(): save! called, returning fileChange entry.."
-    #puts YAML.dump(fileChange)
-    #puts YAML.dump(fileChange.methods)
-    #puts YAML.dump(fileChange.DirectoryEntry)
+    #puts $Project.dump(fileChange)
+    #puts $Project.dump(fileChange.methods)
+    #puts $Project.dump(fileChange.DirectoryEntry)
     #de = fileChange.DirectoryEntry
     return(fileChange)
   end
