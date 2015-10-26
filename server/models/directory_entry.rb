@@ -340,7 +340,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
       $Project.logMsg(LOG_INFO, "Got mutex, running createFileBase() "
       return(createFileBase(fileName, userId, data, mkdirp, fromProcMsg))
     }
-    $Project.logMsg(LOG_INFO, "Released mutex"
+    $Project.logMsg(LOG_INFO, "Released mutex")
   end
 
   def createFileBase(fileName, userId=nil, data=nil, mkdirp = false, fromProcMsg)
@@ -721,9 +721,9 @@ class FileTreeX < DirectoryEntryHelper
       if (/root/.match(parent))
         #We really only need ftroot0 here, as I found out through experimentation
         #Give me a break, I've been up for over 20 hours!
-        $Project.logMsg(LOG_INFO, "Matched root as parent, return flatten.to_json and set cachedJSONTree"
+        $Project.logMsg(LOG_INFO, "Matched root as parent, return flatten.to_json and set cachedJSONTree")
         @cachedJSONTree = jsonString.flatten.to_json
-        $Project.logMsg(LOG_INFO, "Saved cachedJSONTree, returning it"
+        $Project.logMsg(LOG_INFO, "Saved cachedJSONTree, returning it")
         return(@cachedJSONTree)
       end
       $Project.logMsg(LOG_INFO, "Not root, returning without flattening..")
@@ -736,6 +736,7 @@ class FileTreeX < DirectoryEntryHelper
   end
 
   def sanitizeName(type, name, tprepend='', tappend='')
+    $Project.logMsg(LOG_FENTRY, "Called")
     begin
       if (type == 'root')
         return("ftroot0")
@@ -751,20 +752,21 @@ class FileTreeX < DirectoryEntryHelper
       $Project.logMsg(LOG_EXCEPTION | LOG_DEBUG | LOG_DUMP, YAML.dump(e))
       return(false)
     end
-
   end
 
   def procMsg(client, jsonMsg)
-    $Project.logMsg(LOG_INFO, "Asked to process a message for myself: from client #{client.name}"
+    $Project.logMsg(LOG_FENTRY, "Called")
+    $Project.logMsg(LOG_INFO, "Asked to process a message for myself: from client #{client.name}")
     if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
-      $Project.logMsg(LOG_INFO, "Found a function handler for  #{jsonMsg['command']}"
+      $Project.logMsg(LOG_INFO, "Found a function handler for  #{jsonMsg['command']}")
       self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg);
     elsif
-      $Project.logMsg(LOG_ERROR, "There is no function to handle the incoming command #{jsonMsg['command']}"
+      $Project.logMsg(LOG_ERROR, "There is no function to handle the incoming command #{jsonMsg['command']}")
     end
   end
 
   def procMsg_getFileTreeJSON(client, jsonMsg)
+    $Project.logMsg(LOG_FENTRY, "Called")
     # This is currently the only client message we process, we will have to write
     # Move, delete, rename, etc. as well HERE and their supporting functions.
     clientReply = {
@@ -981,7 +983,7 @@ class FileTreeX < DirectoryEntryHelper
 
 
   def procMsg_renameEntry(client, jsonMsg)
-    $Project.logMsg("Called")
+    $Project.logMsg(LOG_FENTRY, "Called")
     begin
       tData = jsonMsg['renameEntry']
       srcPath = tData['srcPath']
@@ -1021,7 +1023,7 @@ class FileTreeX < DirectoryEntryHelper
         @Project.sendToClient(client, clientReply.to_json)
         return(false)
       end
-      $Project.logMsg("Calling DirectoryEntryHelper instantiation fEntry.rename() with #{newName}")
+      $Project.logMsg(LOG_INFO, "Calling DirectoryEntryHelper instantiation fEntry.rename() with #{newName}")
       rval = fEntry.rename(newName)
       if (!rval)
         clientReply = {
