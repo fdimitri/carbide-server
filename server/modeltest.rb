@@ -129,6 +129,11 @@ class ProjectServer
 		callingLine = caller.first.inspect[/line.*(\d+)/,1]
 		logMsg = "[#{timeStr}] (#{levelStr}) #{callingFunction}:#{callingLine} (): #{msg}"
 		puts logMsg
+		if (msg.length > 250)
+			puts "MESSAGE TOO LONG!!!!! Truncating for SQL"
+			puts YAML.dump(caller)
+			msg = msg[0..250]
+		end
 		sleParams = {
 			:entrytime => Time.now,
 			:flags => logLevel,
