@@ -134,8 +134,17 @@ class ProjectServer
 			:flags => logLevel,
 			:source => "#{callingFunction}:#{callingLine}",
 			:message => msg}
-			#sle = ServerLogEntry.create(sleParams)
+		if (@sleThreads.count > 10)
+			@sleThreads.each do |sleThr|
+				sleThr.join
+			end
 		end
+		@sleThreads.delete_if { |thread| !thread.status }
+
+		@sleThreads << Thread.new(sleParams) do
+ 			ServerLogEntry.create(sleParams)
+		end
+	end
 
 		def dump(object)
 			if (!(@logLevel & LOG_DUMP))
@@ -170,6 +179,7 @@ class ProjectServer
 			@logLevel = (@logLevel & ~(LOG_FRPARAM))
 			@logLevel = (@logLevel & ~(LOG_DUMP))
 			@logParams = SLOG_DUMP_INSPECT
+			@sleThreads = []
 			puts "logLevel: " + "%#b" % "#{@logLevel}"
 			@chats = { }
 			@clients = { }

@@ -11,7 +11,6 @@ class ServerLogEntry < ActiveRecord::Base
  	 :reconnect => true)
 
     def self.create(params)
-        paramsRequire
         logEntry = ServerLogEntry.new(params)
         begin
             while (!logEntry.save!) do
