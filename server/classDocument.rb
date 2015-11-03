@@ -1,3 +1,5 @@
+DOC_EMPTY =0x00000001
+
 class DocumentBase
 
   attr_accessor :name
@@ -9,13 +11,28 @@ class DocumentBase
     @name = name
     @revision = 0
     @baseDirectory = baseDirectory
-    @data = Array.new(1, "");
-    @data.insert(' ');
     @clients = { };
     @t = { }
     @rng = Random.new(Time.now.to_i)
     @nonce = @rng.rand(1..9000)
     @dbEntry = dbEntry
+    @flags |= DOC_EMPTY
+  end
+
+  def unloadDocumentData()
+    $Project.logMsg(LOG_FENTRY, "Called")
+    @data = nil
+    @flags |= DOC_EMPTY
+  end
+
+  def loadDocumentData()
+    $Project.logMsg(LOG_FENTRY, "Called")
+    if (@dbEntry != nil)
+      data = @dbEntry.calcCurrent()
+      data = data[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
+      setContents(data)
+      data = nil
+    end
   end
 
   def addClient(client, ws)
@@ -24,6 +41,9 @@ class DocumentBase
 
   def remClient(ws)
     @clients.delete(ws)
+    if (@clients.count == 0 && @data.count > 100)
+      unloadDocumentData()
+    end
   end
 
   def getCurrentRevision()
@@ -115,14 +135,19 @@ class DocumentBase
     if (data.is_a?(String))
       data = data.gsub("\r\n","\n").gsub("\r","")
       @data = data.split("\n")
+      @flags &= ~DOC_EMPTY
+      return(true)
     elsif (data.is_a?(Array))
       if (data.length == 1)
         @data = data.first.split("\n")
       else
         @data = data
       end
+      @flags &= ~DOC_EMPTY
+      return(true)
     else
       puts "Document::setContents(): Data was not a string or array!?"
+      return(false)
     end
   end
 
@@ -182,6 +207,12 @@ class Document < DocumentBase
   end
 
   def procMsg_getContents(client, jsonMsg)
+    $Project.logMsg(LOG_FENTRY, "Called")
+
+    if (@flags & DOC_EMPTY)
+      loadDocumentData()
+    end
+
     @data.each { |d|
       if (d.is_a?(String))
         d = d.sub("\n","").sub("\r","")
@@ -191,7 +222,7 @@ class Document < DocumentBase
       end
     }
     begin
-      puts "procMsg_getContents(): Creating client reply.."
+      $Project.logMsg(LOG_INFO, "Creating client reply..")
       clientReply = {
         'commandSet' => 'document',
         'command' => 'documentSetContents',
@@ -214,9 +245,6 @@ class Document < DocumentBase
     puts "procMsg_getContents(): Sending client reply.."
     clientString = clientReply.to_json
     @project.sendToClient(client, clientString)
-    puts "getContents(): Called #{jsonMsg}"
-    puts "Returning:"
-    puts clientReply
   end
 
   def procMsg_getInfo(client, jsonMsg)
