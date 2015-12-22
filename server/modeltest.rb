@@ -759,8 +759,8 @@ class ProjectServer
 
 		def addDocument(documentName, dbEntry = nil)
 			$Project.logMsg(LOG_FENTRY, "Called")
-			document = Document.new(self, documentName, @baseDirectory, dbEntry);
-			if (dbEntry)
+			document = Document.new(self, documentName, @baseDirectory, nil)
+			if (dbEntry != nil)
 				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
 				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
 				if (dbEntry.filechanges.count > 0)
@@ -769,9 +769,10 @@ class ProjectServer
 					document.setContents(data)
 				end
 				dbEntry = nil
-				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of('dbEntry')))
+				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
 				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
 			end
+
 			@documents[documentName] = document
 			return getDocument(documentName)
 		end
