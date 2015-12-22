@@ -1088,7 +1088,7 @@ class FileTreeX < DirectoryEntryHelper
       }
       @Project.sendToClient(client, clientReply.to_json)
     rescue Exception, TypeError, NameError => e
-      STDERR.puts "Rescued from error: #{e}"
+      $Project.logMsg(LOG_ERROR | LOG_EXCEPTION, "Rescued from exception:\n" + $Project.dump(e))
     end
   end
 

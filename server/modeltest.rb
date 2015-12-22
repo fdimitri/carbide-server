@@ -113,6 +113,9 @@ class ProjectServer
 	attr_accessor	:FileTree
 	attr_accessor :taskBoards
 	attr_accessor :webServer
+#	@logDisallowFiles = [
+#
+#	]
 	public
 	def logMsg(logLevel, msg)
 		if ((logLevel & @logLevel) == 0 )
@@ -127,13 +130,20 @@ class ProjectServer
 		levelStr = "%12s" % levelStr
 		timeStr = '%.2f' % Time.now.to_f
 		threadId = Thread.current.inspect
-		callingFunction = caller.first.inspect[/\`(.*)\'/,1]
-		callingLine = caller.first.inspect[/line.*(\d+)/,1]
-		logMsg = "[#{timeStr}] (#{levelStr}) #{callingFunction}:#{callingLine} (): #{msg}"
+		callingFunction = "%20s" % caller.first.inspect[/\`(.*)\'/,1]
+		callingLine = "%05d" % caller.first.inspect[/(\d+)\:in/,1]
+		callingFile = "%20s" % caller.first.inspect[/(.*):\d+:in/,1][1..-1]
+
+		if (@logDisallowFiles)
+			if (@logDisallowFiles.include?(callingFile))
+				return(false)
+			end
+		end
+
+		logMsg = "[#{timeStr}] (#{levelStr}) |#{callingFile}:#{callingLine}| #{callingFunction}(): #{msg}"
 		puts logMsg
 		if (msg.length > 250)
 			puts "MESSAGE TOO LONG!!!!! Truncating for SQL"
-			puts YAML.dump(caller)
 			msg = msg[0..250]
 		end
 		sleParams = {
