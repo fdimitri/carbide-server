@@ -375,6 +375,10 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
           $Project.logMsg(LOG_INFO, "Setting data to rval[:data] from calcCurrent()")
           data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
           rval = nil
+        else
+          @Project.logMsg(LOG_INFO, "DE_PRELOAD not set")
+          data = nil
+          rval = nil
         end
         if (!@Project.getDocument(fileName))
           $Project.logMsg(LOG_INFO, "Attempt to get document by fileName: #{fileName} failed, adding document")

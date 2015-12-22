@@ -10,6 +10,7 @@ require 'rails-erd'
 require 'mysql2'
 require 'openssl'
 require 'base64'
+require 'objspace'
 
 VM_OPTIONAL =   0x00001
 VM_REQUIRED =   0x00002
@@ -756,8 +757,19 @@ class ProjectServer
 
 
 		def addDocument(documentName, dbEntry = nil)
+			$Project.logMsg(LOG_FENTRY, "Called")
 			document = Document.new(self, documentName, @baseDirectory, dbEntry);
-			@documents[documentName] = document;
+			if (dbEntry)
+				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
+				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
+				rval = dbEntry.calcCurrent()
+				data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
+				document.setContents(data)
+				dbEntry = nil
+				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of('dbEntry')))
+				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
+			end
+			@documents[documentName] = document
 			return getDocument(documentName)
 		end
 
