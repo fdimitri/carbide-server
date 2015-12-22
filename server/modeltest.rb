@@ -763,9 +763,11 @@ class ProjectServer
 			if (dbEntry)
 				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
 				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
-				rval = dbEntry.calcCurrent()
-				data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
-				document.setContents(data)
+				if (dbEntry.filechanges.count > 0)
+					rval = dbEntry.calcCurrent()
+					data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
+					document.setContents(data)
+				end
 				dbEntry = nil
 				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of('dbEntry')))
 				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
