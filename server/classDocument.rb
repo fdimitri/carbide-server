@@ -233,16 +233,15 @@ class Document < DocumentBase
       else
         $Project.logMsg(LOG_ERROR, "@data wasn't an array??")
         $Project.logMsg(LOG_ERROR, $Project.dump(@data))
-        blank = [ "THERE WAS A SERIOUS ERROR LOADING DATA", "PLEASE INFORM CARB/IDE DEVELOPMENT!"]
         clientReply = {
           'commandSet' => 'document',
           'command' => 'documentSetContents',
           'targetDocument' => @name,
           'documentSetContents' => {
             'documentRevision' => @revision,
-            'numLines' => blank.length,
+            'numLines' => 1,
             'docHash' => getHash(@revision),
-            'data' => blank.join("\n").encode('UTF-8', invalid: :replace, undef: :replace, replace: '@'),
+            'data' => "!!! CARB/IDE ERROR LOADING THIS DOCUMENT !!!\n\nPlease submit a bug report!".encode('UTF-8', invalid: :replace, undef: :replace, replace: '@'),
             'document' => @name,
           }
         }

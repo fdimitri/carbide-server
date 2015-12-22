@@ -192,7 +192,7 @@ class ProjectServer
 
 		def initialize(projectName, baseDirectory)
 			$Project = self
-			@logLevel = 0xFFFFFFFF
+			@logLevel = LOG_ERROR | LOG_WARN | LOG_EXCEPTION
 			@logLevel = (@logLevel & ~(LOG_FRPARAM))
 			@logLevel = (@logLevel & ~(LOG_DUMP))
 			@logParams = SLOG_DUMP_INSPECT
@@ -309,6 +309,35 @@ class ProjectServer
 
 		end
 
+		def procMsg_setDebugLevel(ws, msg)
+			hash = 0
+			setDebugLevelValidation = {
+				'hash' => {
+					'classNames' => 'String',
+					'reqBits' => VM_OPTIONAL | VM_STRICT,
+				},
+				'setDebugLevel' => {
+					'classNames' => 'Hash',
+					'reqBits' => VM_REQUIRED | VM_STRICT,
+					'subObjects' => {
+						'debugLevel' => {
+							'classNames' => 'String',
+							'reqBits' => VM_REQUIRED | VM_STRICT,
+							'matchExp' => '/^[\d]+$/'
+						}
+					}
+				}
+			}
+			vMsg = validateMsg(setDebugLevelValidation, msg)
+			if (!vMsg['status'])
+				generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'createChatRoom')
+				return false
+			end
+			@logLevel = msg['setDebugLevel']['debugLevel'].to_i
+			return(true)
+		end
+
+
 		def procMsg_createChatRoom(ws, msg)
 			hash = 0
 			createChatRoomValidation = {
@@ -330,7 +359,7 @@ class ProjectServer
 			}
 			vMsg = validateMsg(createChatRoomValidation, msg)
 			if (!vMsg['status'])
-				generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+				generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'createChatRoom')
 				return false
 			end
 
