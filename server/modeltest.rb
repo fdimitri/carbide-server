@@ -249,10 +249,19 @@ class ProjectServer
 	end
 
 	def start(opts = { })
-		EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080) do |ws|
+		EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080, :debug => true) do |ws|
 			ws.onopen    { addClient(ws) }
 			ws.onmessage { |msg| handleMessage(ws, msg) }
 			ws.onclose   { removeClient(ws) }
+			ws.onerror   { |error|
+				if (error.kind_of?(EventMachine::WebSocket::WebSocketError))
+					$Project.logMsg(LOG_ERROR, "WebSocketError..")
+					$Project.logMsg(LOG_ERROR | LOG_DEBUG, $Project.dump(error))
+				else
+					$Project.logMsg(LOG_ERROR, "Websocket received non WebSocketError..")
+					$Project.logMsg(LOG_ERROR | LOG_DEBUG, $Project.dump(error))
+				end
+			}
 		end
 	end
 
