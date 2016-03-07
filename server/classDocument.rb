@@ -164,7 +164,8 @@ end
 
 class Document < DocumentBase
   def procMsg(client, jsonMsg)
-    puts "Asked to process a message for myself: #{name} from client #{client.name}"
+    $Project.logMsg(LOG_FENTRY, "Called to process a message")
+    $Project.logMsg(LOG_FPARAMS, "Client Name: #{client.name} and Message Data: #{jsonMsg.inspect}")
     if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
       puts "Found a function handler for  #{jsonMsg['command']}"
       self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg)

@@ -218,9 +218,10 @@ class ProjectServer
 				logMsgFlusher()
 			}
 			$Project = self
-			@logLevel = LOG_ERROR | LOG_WARN | LOG_EXCEPTION
-			@logLevel = (@logLevel & ~(LOG_FRPARAM))
-			@logLevel = (@logLevel & ~(LOG_DUMP))
+			# @logLevel = LOG_ERROR | LOG_WARN | LOG_EXCEPTION
+			# @logLevel = (@logLevel & ~(LOG_FRPARAM))
+			# @logLevel = (@logLevel & ~(LOG_DUMP))
+			@logLevel = 0xFFFFFFFF
 			@logParams = SLOG_DUMP_INSPECT
 			@sleThreads = []
 			@sleData = []
