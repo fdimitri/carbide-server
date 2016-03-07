@@ -297,7 +297,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     end
     $Project.logMsg(LOG_INFO | LOG_VERBOSE, "Unable to find directory #{srcPath} in the database")
     $Project.logMsg(LOG_FRETURN, "Exiting function, returning false")
-    $Project.logMsg(LOG_FRPARAM, false)
+    $Project.logMsg(LOG_FRPARAM, "Return false")
     return(false)
   end
 
