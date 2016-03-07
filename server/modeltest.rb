@@ -166,7 +166,7 @@ class ProjectServer
 		@sleData << ServerLogEntry.new(sleParams)
 		if (@sleData.size > LOG_OPTION_ENTRIES)
 			ServerLogEntry.import(@sleData)
-			@sleData = { }
+			@sleData = [ ]
 		end
 	end
 
@@ -204,7 +204,7 @@ class ProjectServer
 			@logLevel = (@logLevel & ~(LOG_DUMP))
 			@logParams = SLOG_DUMP_INSPECT
 			@sleThreads = []
-			@sleData = {}
+			@sleData = []
 			puts "logLevel: " + "%#b" % "#{@logLevel}"
 			@chats = { }
 			@clients = { }
