@@ -893,11 +893,19 @@ class ProjectServer
 
 	def addDocument(documentName, dbEntry = nil)
 		$Project.logMsg(LOG_FENTRY, "Called")
+		$Project.logMsg(LOG_FPARAMS, "documentName: #{documentName}")
+		if (dbEntry == nil)
+			$Project.logMsg(LOG_FPARAMS, "dbEntry is nil!")
+		else
+			$Project.logMsg(LOG_FPARAMS, "dbEntry is NOT nil!")
+		end
 		document = Document.new(self, documentName, @baseDirectory, dbEntry)
-		t = Thread.new(document, dbEntry) {
-			addDocumentBase(document, dbEntry)
-		}
-		@addDocumentThreads << t
+
+		# This would pre-load all documents.. probably best to not do that for now.
+		# t = Thread.new(document, dbEntry) {
+		# 	addDocumentBase(document, dbEntry)
+		# }
+		# @addDocumentThreads << t
 		@mutexDocuments.synchronize {
 			@documents[documentName] = document
 		}

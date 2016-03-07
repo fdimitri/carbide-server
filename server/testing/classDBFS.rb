@@ -57,6 +57,8 @@ class DBFSBase
       deChildren = dirEntry.children.find_by_ftype('folder')
       if (deChildren.is_a?(Array))
         deChildren.each do |entry|
+          # Ignore git stuff for now
+          next if (/#{entry.srcpath}/.match('git'))
           buildThreadList << Thread.new do
             Thread.current['children'] = []
             newEntry = dbbuildTree('/', entry.srcpath)
@@ -111,6 +113,7 @@ class DBFSBase
       if (value['type'] == 'directory')
         # If the directory exists, do not try to create it again -- but still call
         # createFileTree(value) as it may have children that we have not encountered before
+        next if (/#{value['fullPath']}/.match('git'))
         if (!@fileTree.fileExists(value['fullPath']))
           #puts "createFileTree(): mkDir(2) #{value['fullPath']}"
           @fileTree.mkDir(value['fullPath'])
