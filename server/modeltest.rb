@@ -215,7 +215,7 @@ class ProjectServer
 	def flushAddDocuments()
 		while (1)
 			if (@addDocumentThreads.count < 1)
-				$Project.logMsg(LOG_INFO | LOG_VERBOSE, "There were no document threads to flush"
+				$Project.logMsg(LOG_INFO | LOG_VERBOSE, "There were no document threads to flush")
 			else
 				@addDocumentThreads.each do |docThread|
 					$Project.logMsg(LOG_INFO | LOG_DEBUG, "Checking addDocument thread")
