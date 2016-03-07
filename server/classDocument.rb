@@ -227,7 +227,8 @@ class Document < DocumentBase
             d = d.sub("\n","").sub("\r","")
           else
             $Project.logMsg(LOG_ERROR, "Ran into an error with the data array -- element is not a string. Type is: " + d.class.to_s)
-            $Project.logMsg(LOG_ERROR | LOG_DUMP, $Project.dump(d));
+            $Project.logMsg(LOG_ERROR | LOG_DUMP, $Project.dump(d))
+            return false
           end
         }
       else
@@ -245,6 +246,9 @@ class Document < DocumentBase
             'document' => @name,
           }
         }
+        puts "procMsg_getContents(): Sending client reply.."
+        clientString = clientReply.to_json
+        @project.sendToClient(client, clientString)
         return false
       end
 

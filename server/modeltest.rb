@@ -11,7 +11,7 @@ require 'mysql2'
 require 'openssl'
 require 'base64'
 require 'objspace'
-
+require 'activerecord-import'
 VM_OPTIONAL =   0x00001
 VM_REQUIRED =   0x00002
 VM_NOTALLOW =   0x00004
@@ -33,7 +33,7 @@ LOG_FRETURN 		=0x00000400
 LOG_FRPARAM	    =0x00000800
 LOG_BACKTRACE   =0x00001000
 LOG_MALLOC		  =0x00002000
-
+LOG_OPTION_ENTRIES  = 20
 SLOG_DUMP_YAML		=0x00000001
 SLOG_DUMP_JSON  	=0x00000002
 SLOG_DUMP_INSPECT =0x00000004
@@ -151,15 +151,20 @@ class ProjectServer
 			:flags => logLevel,
 			:source => "#{callingFunction}:#{callingLine}",
 			:message => msg}
-		if (@sleThreads.count > 10)
-			@sleThreads.each do |sleThr|
-				sleThr.join
-			end
-		end
-		@sleThreads.delete_if { |thread| !thread.status }
-
-		@sleThreads << Thread.new(sleParams) do
- 			ServerLogEntry.create(sleParams)
+		# if (@sleThreads.count > 10)
+		# 	@sleThreads.each do |sleThr|
+		# 		sleThr.join
+		# 	end
+		# end
+		# @sleThreads.delete_if { |thread| !thread.status }
+		#
+		# @sleThreads << Thread.new(sleParams) do
+ 	# 		ServerLogEntry.create(sleParams)
+		# end
+		@sleData << ServerLogEntry.new(sleParams)
+		if (@sleData.size > LOG_OPTION_ENTRIES)
+			ServerLogEntry.import(@sleData)
+			@sleData = { }
 		end
 	end
 
@@ -197,6 +202,7 @@ class ProjectServer
 			@logLevel = (@logLevel & ~(LOG_DUMP))
 			@logParams = SLOG_DUMP_INSPECT
 			@sleThreads = []
+			@sleData = {}
 			puts "logLevel: " + "%#b" % "#{@logLevel}"
 			@chats = { }
 			@clients = { }
