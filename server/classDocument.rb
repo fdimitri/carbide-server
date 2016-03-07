@@ -5,7 +5,8 @@ class DocumentBase
   attr_accessor :name
   attr_accessor :project
   attr_accessor :clients
-
+  attr_accessor :dbEntry
+  
   def initialize(project, name, baseDirectory, dbEntry = nil)
     @project = project
     @name = name

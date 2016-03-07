@@ -212,10 +212,33 @@ class ProjectServer
 		end
 	end
 
+	def flushAddDocuments()
+		while (1)
+			if (@flushDocumentsThread.count < 1)
+				return false
+			end
+			@flushDocumentsThread.each do |docThread|
+				$Project.logMsg(LOG_INFO | LOG_DEBUG, "Checking addDocument thread")
+				$Project.logMsg(LOG_INFO | LOG_DEBUG, $Project.dump(docThread))
+				next if (docThread.status.to_s == "run")
+				next if (docThread.status.to_s == "sleep")
+				next if (docThread.status.to_s == "aborting")
+				$Project.logMsg(LOG_INFO | LOG_DEBUG, "Joining thread")
+				$Project.logMsg(LOG_INFO | LOG_DEBUG, $Project.dump(docThread.value))
+				docThread.join
+			end
+			@flushDocumentsThread.delete_if { |thread| !thread.status}
+			sleep(LOG_OPTION_INTERVAL)
+		end
+	end
+
 
 	def initialize(projectName, baseDirectory)
 		@flushMsgThread = Thread.new {
 			logMsgFlusher()
+		}
+		@flushDocumentsThread = Thread.new {
+			flushAddDocuments()
 		}
 		$Project = self
 		# @logLevel = LOG_ERROR | LOG_WARN | LOG_EXCEPTION
@@ -226,6 +249,8 @@ class ProjectServer
 		@sleThreads = []
 		@sleData = []
 		@sleDataMutex = Mutex.new
+		@mutexDocuments = Mutex.new
+		@addDocumentThreads = []
 		puts "logLevel: " + "%#b" % "#{@logLevel}"
 		@chats = { }
 		@clients = { }
@@ -835,10 +860,15 @@ class ProjectServer
 	end
 
 
-
 	def addDocument(documentName, dbEntry = nil)
+		@addDocumentThreads << Thread.new(documentName, dbEntry) {
+			addDocumentBase(documentName, dbEntry)
+		}
+	end
+
+	def addDocumentBase(documentName, dbEntry = nil)
 		$Project.logMsg(LOG_FENTRY, "Called")
-		document = Document.new(self, documentName, @baseDirectory, nil)
+		document = Document.new(self, documentName, @baseDirectory, dbEntry)
 		if (dbEntry != nil)
 			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
 			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
@@ -852,8 +882,11 @@ class ProjectServer
 			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
 		end
 
-		@documents[documentName] = document
+		@mutexDocuments.synchronize {
+			@documents[documentName] = document
+		}
 		return getDocument(documentName)
+
 	end
 
 	def getDocument(documentName, autoCreate = false)
