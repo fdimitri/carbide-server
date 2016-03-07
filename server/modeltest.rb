@@ -163,10 +163,10 @@ class ProjectServer
 
 	def flushMessages(minSize = 1)
 		@sleDataMutex.synchronize {
-			if (@sleData.size < minSize)
+			if (@sleData.count < minSize)
 				return(false)
 			end
-			flushedEntries = @sleData.size
+			flushedEntries = @sleData.count
 			ServerLogEntry.import(@sleData)
 			@sleData = []
 			return(flushedEntries)
@@ -200,18 +200,22 @@ class ProjectServer
 			@webServer = webServer
 		end
 
+		def logMsgFlusher()
+			while (1)
+				rval = flushMessages(LOG_OPTION_ENTRIES)
+				if (rval === false)
+					puts "No messages to flush to SQL -- there are only #{@sleData.count} messages in queue"
+				else
+					puts "Flushed #{rval} messages"
+				end
+				sleep(LOG_OPTION_INTERVAL)
+			end
+		end
+
+
 		def initialize(projectName, baseDirectory)
 			@flushMsgThread = Thread.new {
-				while (1)
-					rval = flushMessages(LOG_OPTION_ENTRIES)
-					if (rval === false)
-						puts "No messages to flush to SQL"
-					else
-						puts "Flushed #{rval} messages"
-					end
-					sleep(LOG_OPTION_INTERVAL)
-				end
-
+				logMsgFlusher()
 			}
 			$Project = self
 			@logLevel = LOG_ERROR | LOG_WARN | LOG_EXCEPTION
