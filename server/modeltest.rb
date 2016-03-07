@@ -117,9 +117,9 @@ class ProjectServer
 	attr_accessor	:FileTree
 	attr_accessor :taskBoards
 	attr_accessor :webServer
-#	@logDisallowFiles = [
-#
-#	]
+	#	@logDisallowFiles = [
+	#
+	#	]
 	public
 	def logMsg(logLevel, msg)
 		if ((logLevel & @logLevel) == 0 )
@@ -173,963 +173,987 @@ class ProjectServer
 		}
 	end
 
-		def dump(object)
-			if (!(@logLevel & LOG_DUMP))
-				return("Dump disabled")
+	def dump(object)
+		if (!(@logLevel & LOG_DUMP))
+			return("Dump disabled")
+		end
+		if (@logParams & SLOG_DUMP_YAML == SLOG_DUMP_YAML)
+			return(YAML.dump(object))
+		elsif (@logParams & SLOG_DUMP_INSPECT == SLOG_DUMP_INSPECT)
+			return(object.inspect.to_s)
+		elsif (@logParams & SLOG_DUMP_JSON == SLOG_DUMP_JSON)
+			return(object.to_json)
+		end
+
+	end
+
+	def readTree()
+		fsb = DBFSBase.new(@FileTree)
+		testlist = fsb.dbbuildTree()
+		fsb.dbcreateFileTree(testlist)
+		fsb = FileSystemBase.new(@baseDirectory, @FileTree)
+		testlist = fsb.buildTree()
+		fsb.createFileTree(testlist)
+	end
+
+	def registerWebServer(webServer)
+		@webServer = webServer
+	end
+
+	def logMsgFlusher()
+		while (1)
+			rval = flushMessages(LOG_OPTION_ENTRIES)
+			if (rval === false)
+				puts "No messages to flush to SQL -- there are only #{@sleData.count} messages in queue"
+			else
+				puts "Flushed #{rval} messages"
 			end
-			if (@logParams & SLOG_DUMP_YAML == SLOG_DUMP_YAML)
-				return(YAML.dump(object))
-			elsif (@logParams & SLOG_DUMP_INSPECT == SLOG_DUMP_INSPECT)
-				return(object.inspect.to_s)
-			elsif (@logParams & SLOG_DUMP_JSON == SLOG_DUMP_JSON)
-				return(object.to_json)
-			end
+			sleep(LOG_OPTION_INTERVAL)
+		end
+	end
 
+
+	def initialize(projectName, baseDirectory)
+		@flushMsgThread = Thread.new {
+			logMsgFlusher()
+		}
+		$Project = self
+		# @logLevel = LOG_ERROR | LOG_WARN | LOG_EXCEPTION
+		# @logLevel = (@logLevel & ~(LOG_FRPARAM))
+		# @logLevel = (@logLevel & ~(LOG_DUMP))
+		@logLevel = 0xFFFFFFFF
+		@logParams = SLOG_DUMP_INSPECT
+		@sleThreads = []
+		@sleData = []
+		@sleDataMutex = Mutex.new
+		puts "logLevel: " + "%#b" % "#{@logLevel}"
+		@chats = { }
+		@clients = { }
+		@documents = { }
+		@terminals = { }
+		@taskBoards = { }
+		@webServer = nil
+		@projectName = projectName
+		@FileTree = FileTreeX.new
+		@FileTree.setOptions(projectName, self)
+		@baseDirectory = baseDirectory
+
+		readTree()
+		for n in 0..0
+			#Lots of bash consoles and chats by default to stress test and
+			# to check GUI functionality
+			addChat('StdDev' + n.to_s)
+			addTerminal('Default_Terminal' + n.to_s)
 		end
 
-		def readTree()
-			fsb = DBFSBase.new(@FileTree)
-			testlist = fsb.dbbuildTree()
-			fsb.dbcreateFileTree(testlist)
-			fsb = FileSystemBase.new(@baseDirectory, @FileTree)
-			testlist = fsb.buildTree()
-			fsb.createFileTree(testlist)
-		end
+	end
 
-		def registerWebServer(webServer)
-			@webServer = webServer
+	def start(opts = { })
+		EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080) do |ws|
+			ws.onopen    { addClient(ws) }
+			ws.onmessage { |msg| handleMessage(ws, msg) }
+			ws.onclose   { removeClient(ws) }
 		end
+	end
 
-		def logMsgFlusher()
-			while (1)
-				rval = flushMessages(LOG_OPTION_ENTRIES)
-				if (rval === false)
-					puts "No messages to flush to SQL -- there are only #{@sleData.count} messages in queue"
+	def handleMessage(ws, msg)
+		if (msg.is_json?)
+			jsonString = JSON.parse(msg)
+			if (jsonString['commandSet'] == 'document')
+				puts "This message corresponds to a document"
+				if (!jsonString['documentTarget'].nil?)
+					docTarget = jsonString['documentTarget']
+				elsif (!jsonString['document'].nil?)
+					docTarget = jsonString['document']
+				elsif (!jsonString['targetDocument'].nil?)
+					docTarget = jsonString['targetDocument']
 				else
-					puts "Flushed #{rval} messages"
-				end
-				sleep(LOG_OPTION_INTERVAL)
-			end
-		end
-
-
-		def initialize(projectName, baseDirectory)
-			@flushMsgThread = Thread.new {
-				logMsgFlusher()
-			}
-			$Project = self
-			# @logLevel = LOG_ERROR | LOG_WARN | LOG_EXCEPTION
-			# @logLevel = (@logLevel & ~(LOG_FRPARAM))
-			# @logLevel = (@logLevel & ~(LOG_DUMP))
-			@logLevel = 0xFFFFFFFF
-			@logParams = SLOG_DUMP_INSPECT
-			@sleThreads = []
-			@sleData = []
-			@sleDataMutex = Mutex.new
-			puts "logLevel: " + "%#b" % "#{@logLevel}"
-			@chats = { }
-			@clients = { }
-			@documents = { }
-			@terminals = { }
-			@taskBoards = { }
-			@webServer = nil
-			@projectName = projectName
-			@FileTree = FileTreeX.new
-			@FileTree.setOptions(projectName, self)
-			@baseDirectory = baseDirectory
-
-			readTree()
-			for n in 0..0
-				#Lots of bash consoles and chats by default to stress test and
-				# to check GUI functionality
-				addChat('StdDev' + n.to_s)
-				addTerminal('Default_Terminal' + n.to_s)
-			end
-
-		end
-
-		def start(opts = { })
-			EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080) do |ws|
-				ws.onopen    { addClient(ws) }
-				ws.onmessage { |msg| handleMessage(ws, msg) }
-				ws.onclose   { removeClient(ws) }
-			end
-		end
-
-		def handleMessage(ws, msg)
-			if (msg.is_json?)
-				jsonString = JSON.parse(msg)
-				if (jsonString['commandSet'] == 'document')
-					puts "This message corresponds to a document"
-					if (!jsonString['documentTarget'].nil?)
-						docTarget = jsonString['documentTarget']
-					elsif (!jsonString['document'].nil?)
-						docTarget = jsonString['document']
-					elsif (!jsonString['targetDocument'].nil?)
-						docTarget = jsonString['targetDocument']
-					else
-						puts "There was no document or documentTarget in jsonString"
-						puts $Project.dump(jsonString)
-						return false;
-					end
-
-					if (doc = getDocument(docTarget))
-						doc.procMsg(getClient(ws), jsonString);
-					else
-						puts "handleMessage couldn't getDocument() -- document " + docTarget + " doesn't exist as far as we know"
-					end
-				elsif (jsonString['commandSet'] == 'chat')
-					puts "This message corresponds to a chat for #{jsonString['chatTarget']}"
-					if (chat = getChat(jsonString['chatTarget']))
-						chat.procMsg(getClient(ws), jsonString)
-					else
-						puts "We should create a new chat since it doesn't exist"
-						chat = addChat(jsonString['chatTarget'])
-						chat.procMsg(getClient(ws), jsonString)
-					end
-				elsif (jsonString['commandSet'] == 'FileTree')
-					STDERR.puts "Received FileTree command"
-					STDERR.flush
-					@FileTree.procMsg(getClient(ws), jsonString)
-				elsif (jsonString['commandSet'] == 'term')
-					if (term = getTerminal(jsonString['termTarget']))
-						term.procMsg(getClient(ws), jsonString)
-					else
-						puts "Asked to process a message for terminal that doesnt exist"
-					end
-				elsif (jsonString['commandSet'] == 'task')
-					if (taskTarget = getTaskBoard(jsonString['taskTarget']))
-						taskTarget.procMsg(getClient(ws), jsonString)
-					else
-						puts "Asked to process a message for a non-existent taskBoard or taskTarget wasn't set!"
-						puts $Project.dump(jsonString)
-					end
-				elsif (!jsonString['commandSet'] || jsonString['commandSet'] == 'base')
-					puts "This message is general context"
-					if (self.respond_to?("procMsg_#{jsonString['command']}"))
-						puts "Found a function handler for  #{jsonString['command']}"
-						self.send("procMsg_#{jsonString['command']}", (ws), jsonString);
-					elsif
-						puts "There is no function to handle the incoming command #{jsonString['command']}"
-					end
-				elsif (jsonString['commandSet'] == 'client')
-					puts "Got a client message"
+					puts "There was no document or documentTarget in jsonString"
 					puts $Project.dump(jsonString)
-				else
-					puts "Unrecognized commandSet or commandSet unset"
-					if (jsonString['commandSet'])
-						puts "Command set: #{jsonString['commmandSet']}"
-					end
+					return false;
 				end
-			elsif
-				puts "Message was either invalid JSON or another format"
+
+				if (doc = getDocument(docTarget))
+					doc.procMsg(getClient(ws), jsonString);
+				else
+					puts "handleMessage couldn't getDocument() -- document " + docTarget + " doesn't exist as far as we know"
+				end
+			elsif (jsonString['commandSet'] == 'chat')
+				puts "This message corresponds to a chat for #{jsonString['chatTarget']}"
+				if (chat = getChat(jsonString['chatTarget']))
+					chat.procMsg(getClient(ws), jsonString)
+				else
+					puts "We should create a new chat since it doesn't exist"
+					chat = addChat(jsonString['chatTarget'])
+					chat.procMsg(getClient(ws), jsonString)
+				end
+			elsif (jsonString['commandSet'] == 'FileTree')
+				STDERR.puts "Received FileTree command"
+				STDERR.flush
+				@FileTree.procMsg(getClient(ws), jsonString)
+			elsif (jsonString['commandSet'] == 'term')
+				if (term = getTerminal(jsonString['termTarget']))
+					term.procMsg(getClient(ws), jsonString)
+				else
+					puts "Asked to process a message for terminal that doesnt exist"
+				end
+			elsif (jsonString['commandSet'] == 'task')
+				if (taskTarget = getTaskBoard(jsonString['taskTarget']))
+					taskTarget.procMsg(getClient(ws), jsonString)
+				else
+					puts "Asked to process a message for a non-existent taskBoard or taskTarget wasn't set!"
+					puts $Project.dump(jsonString)
+				end
+			elsif (!jsonString['commandSet'] || jsonString['commandSet'] == 'base')
+				puts "This message is general context"
+				if (self.respond_to?("procMsg_#{jsonString['command']}"))
+					puts "Found a function handler for  #{jsonString['command']}"
+					self.send("procMsg_#{jsonString['command']}", (ws), jsonString);
+				elsif
+					puts "There is no function to handle the incoming command #{jsonString['command']}"
+				end
+			elsif (jsonString['commandSet'] == 'client')
+				puts "Got a client message"
+				puts $Project.dump(jsonString)
+			else
+				puts "Unrecognized commandSet or commandSet unset"
+				if (jsonString['commandSet'])
+					puts "Command set: #{jsonString['commmandSet']}"
+				end
 			end
+		elsif
+			puts "Message was either invalid JSON or another format"
 		end
+	end
 
 
 
-		def getTerminal(termName)
-			puts "getTerminal called with #{termName}"
-			if (@terminals[termName])
-				return @terminals[termName];
-			end
-			return FALSE
+	def getTerminal(termName)
+		puts "getTerminal called with #{termName}"
+		if (@terminals[termName])
+			return @terminals[termName];
 		end
+		return FALSE
+	end
 
-		def procMsg_authenticateUser(ws, msg)
+	def procMsg_authenticateUser(ws, msg)
 
-		end
+	end
 
-		def procMsg_setDebugLevel(ws, msg)
-			hash = 0
-			setDebugLevelValidation = {
-				'hash' => {
-					'classNames' => 'String',
-					'reqBits' => VM_OPTIONAL | VM_STRICT,
-				},
-				'setDebugLevel' => {
-					'classNames' => 'Hash',
-					'reqBits' => VM_REQUIRED | VM_STRICT,
-					'subObjects' => {
-						'debugLevel' => {
-							'classNames' => 'String',
-							'reqBits' => VM_REQUIRED | VM_STRICT,
-							'matchExp' => '/^[\d]+$/'
-						}
+	def procMsg_setDebugLevel(ws, msg)
+		hash = 0
+		setDebugLevelValidation = {
+			'hash' => {
+				'classNames' => 'String',
+				'reqBits' => VM_OPTIONAL | VM_STRICT,
+			},
+			'setDebugLevel' => {
+				'classNames' => 'Hash',
+				'reqBits' => VM_REQUIRED | VM_STRICT,
+				'subObjects' => {
+					'debugLevel' => {
+						'classNames' => 'String',
+						'reqBits' => VM_REQUIRED | VM_STRICT,
+						'matchExp' => '/^[\d]+$/'
 					}
 				}
 			}
-			vMsg = validateMsg(setDebugLevelValidation, msg)
-			if (!vMsg['status'])
-				generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'createChatRoom')
-				return false
-			end
-			@logLevel = msg['setDebugLevel']['debugLevel'].to_i
-			return(true)
+		}
+		vMsg = validateMsg(setDebugLevelValidation, msg)
+		if (!vMsg['status'])
+			generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'createChatRoom')
+			return false
 		end
+		@logLevel = msg['setDebugLevel']['debugLevel'].to_i
+		return(true)
+	end
 
 
-		def procMsg_createChatRoom(ws, msg)
-			hash = 0
-			createChatRoomValidation = {
-				'hash' => {
-					'classNames' => 'String',
-					'reqBits' => VM_OPTIONAL | VM_STRICT,
-				},
-				'createChatRoom' => {
-					'classNames' => 'Hash',
-					'reqBits' => VM_REQUIRED | VM_STRICT,
-					'subObjects' => {
-						'chatRoomName' => {
-							'classNames' => 'String',
-							'reqBits' => VM_REQUIRED | VM_STRICT,
-							'matchExp' => '/^[\w\d-_\s]+$/'
-						}
+	def procMsg_createChatRoom(ws, msg)
+		hash = 0
+		createChatRoomValidation = {
+			'hash' => {
+				'classNames' => 'String',
+				'reqBits' => VM_OPTIONAL | VM_STRICT,
+			},
+			'createChatRoom' => {
+				'classNames' => 'Hash',
+				'reqBits' => VM_REQUIRED | VM_STRICT,
+				'subObjects' => {
+					'chatRoomName' => {
+						'classNames' => 'String',
+						'reqBits' => VM_REQUIRED | VM_STRICT,
+						'matchExp' => '/^[\w\d-_\s]+$/'
 					}
 				}
 			}
-			vMsg = validateMsg(createChatRoomValidation, msg)
-			if (!vMsg['status'])
-				generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'createChatRoom')
-				return false
-			end
-
-			createChat = msg['createChatRoom']
-			chatName = createChat['chatRoomName']
-
-			if (!getChat(chatName))
-				addChat(chatName)
-			end
-
-			replyObject = {
-				'status' => 'true',
-				'hash' => msg['hash'],
-				'createChatRoom' => createChat,
-			}
-
-			replyString = replyObject.to_json
-			sendToClient(@clients[ws], replyString)
-			return(true)
-		end
-
-		def procMsg_createTerminal(ws,msg)
-			hash = 0
-			createTerminalValidation = {
-				'hash' => {
-					'classNames' => 'String',
-					'reqBits' => VM_OPTIONAL | VM_STRICT,
-				},
-				'createTerminalBoard' => {
-					'classNames' => 'Hash',
-					'reqBits' => VM_REQUIRED | VM_STRICT,
-					'subObjects' => {
-						'terminalName' => {
-							'classNames' => 'String',
-							'reqBits' => VM_REQUIRED | VM_STRICT,
-							'matchExp' => '/^[\w\d-_\s]+$/'
-						}
-					}
-				}
-			}
-			vMsg = validateMsg(createTaskBoardValidation, msg)
-			if (!vMsg['status'])
-				generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
-				return false
-			end
-
-			createTerminal = msg['createTerminal']
-			termName = createTerminal['terminalName']
-
-			if (!getTerminal(termName))
-				addTerminal(termName)
-			end
-
-			replyObject = {
-				'status' => 'true',
-				'hash' => msg['hash'],
-				'createTerminal' => createTerminal,
-			}
-			replyString = replyObject.to_json
-			sendToClient(@clients[ws], replyString)
-
-			return(true)
-		end
-
-		def procMsg_createTaskBoard(ws, msg)
-			hash = 0
-			createTaskBoardValidation = {
-				'hash' => {
-					'classNames' => 'String',
-					'reqBits' => VM_OPTIONAL | VM_STRICT,
-				},
-				'createTaskBoard' => {
-					'classNames' => 'Hash',
-					'reqBits' => VM_REQUIRED | VM_STRICT,
-					'subObjects' => {
-						'taskBoardName' => {
-							'classNames' => 'String',
-							'reqBits' => VM_REQUIRED | VM_STRICT,
-							'matchExp' => '/^[\w\d-_\s]+$/'
-						}
-					}
-				}
-			}
-			vMsg = validateMsg(createTaskBoardValidation, msg)
-			if (!vMsg['status'])
-				generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
-				return false
-			end
-
-			createTaskBoard = msg['createTaskBoard']
-			boardName = createTaskBoard['taskBoardName']
-
-			if (!getTaskBoard(boardName))
-				addTaskBoard(boardName)
-			end
-
-			replyObject = {
-				'status' => 'true',
-				'hash' => msg['hash'],
-				'createTaskBoard' => createTaskBoard,
-			}
-			replyString = replyObject.to_json
-			sendToClient(@clients[ws], replyString)
-			return(true)
-		end
-
-
-		def procMsg_openTerminal(ws,msg)
-			hash = 0
-			openTerminalValidation = {
-				'hash' => {
-					'classNames' => 'String',
-					'reqBits' => VM_OPTIONAL | VM_STRICT,
-				},
-				'openTerminal' => {
-					'classNames' => 'Hash',
-					'reqBits' => VM_REQUIRED | VM_STRICT,
-					'subObjects' => {
-						'termName' => {
-							'classNames' => 'String',
-							'reqBits' => VM_REQUIRED | VM_STRICT,
-							'matchExp' => '/^[\w\d-_\s]+$/'
-						}
-					}
-				}
-			}
-			vMsg = validateMsg(openTerminalValidation, msg)
-			if (!vMsg['status'])
-				generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
-				return false
-			end
-
-			openTerminal = msg['openTerminal']
-			termName = openTerminal['termName']
-			puts "procMsg Open Terminal #{termName}"
-
-			if (!getTerminal(termName))
-				puts "Creating terminal"
-				addTerminal(termName)
-			end
-			client = @clients[ws]
-			client.addTerminal(getTerminal(termName))
-			@terminals[termName].addClient(client, ws)
-		end
-
-		def generateError(ws, hash, status, errorReasons, commandRequested)
-			clientReply = {
-				'hash' => hash,
-				'status' => status,
-				'errorReasons' => errorReasons,
-				'commandSet' => 'reply',
-				'commandType' => commandRequested,
-			}
-			puts $Project.dump(clientReply)
-			puts "Converting to json.."
-			clientString = clientReply.to_json
-			puts clientString
-			puts "Sending to client!"
-			sendToClient(@clients[ws], clientString)
+		}
+		vMsg = validateMsg(createChatRoomValidation, msg)
+		if (!vMsg['status'])
+			generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'createChatRoom')
 			return false
 		end
 
-		def procMsg_closeTerminal(ws,msg)
+		createChat = msg['createChatRoom']
+		chatName = createChat['chatRoomName']
+
+		if (!getChat(chatName))
+			addChat(chatName)
 		end
 
-		def procMsg_openDocument(ws, msg)
-			docName = msg["documentName"]
-			client = @clients[ws]
-			client.addDocument(docName)
-			@documents[docname].addClient(client)
-		end
+		replyObject = {
+			'status' => 'true',
+			'hash' => msg['hash'],
+			'createChatRoom' => createChat,
+		}
 
-		def procMsg_closeDocument(ws, msg)
-		end
+		replyString = replyObject.to_json
+		sendToClient(@clients[ws], replyString)
+		return(true)
+	end
 
-		def procMsg_hintActiveDocument(ws, msg)
-		end
-
-		def procMsg_getFileTree(ws, msg)
-			return(@fileTree.getFileTreeJSON(ws, msg))
-		end
-
-		def procMsg_getChatList(ws, msg)
-			names = chatNames()
-			clientReply = {
-				'commandSet' => 'reply',
-				'commandType' => 'chat',
-				'command' => 'getChatList',
-				'getChatList' => {
-					'status' => true,
-					'chatList' => names,
-				},
+	def procMsg_createTerminal(ws,msg)
+		hash = 0
+		createTerminalValidation = {
+			'hash' => {
+				'classNames' => 'String',
+				'reqBits' => VM_OPTIONAL | VM_STRICT,
+			},
+			'createTerminalBoard' => {
+				'classNames' => 'Hash',
+				'reqBits' => VM_REQUIRED | VM_STRICT,
+				'subObjects' => {
+					'terminalName' => {
+						'classNames' => 'String',
+						'reqBits' => VM_REQUIRED | VM_STRICT,
+						'matchExp' => '/^[\w\d-_\s]+$/'
+					}
+				}
 			}
-			clientString = clientReply.to_json
-
-			sendToClient(@clients[ws], clientString)
+		}
+		vMsg = validateMsg(createTaskBoardValidation, msg)
+		if (!vMsg['status'])
+			generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+			return false
 		end
 
-		def validateMsg(validation, msg)
-			begin
-				puts "Enter validateMsg"
-				errorReasons = []
-				validation.each {|key, val|
-					puts "Key: #{key}, VAL:"
-					puts $Project.dump(val)
-					if (val['reqBits'] & VM_REQUIRED)
-						puts "VM_REQUIRED for #{key}"
-						if (!msg.has_key?(key))
-							puts "Msg has no key #{key}"
-							errorReasons << 'Missing required key: {#key}'
-						elsif (val.has_key?('classNames') && !(msg[key].class.name == val['classNames']))
-							puts "Msg has invalid clasName!"
-							className = msg[key].class.name
-							errorReasons << "Invalid class type: #{className}, should be #{val['classNames']}"
-						else
-							puts "Msg has key and proper className"
-							# Everything is OK, check subObjects if they exist!
-							begin
-								if (val.has_key?('classNames') && val['classNames'] == "Hash" && val.has_key?('subObjects'))
-									puts "classNames == Hash && val.has_key subOjects, call validateMsg() recursively"
-									subValidation = validateMsg(val['subObjects'], msg[key])
-									puts "validateMsg() recursive call complete"
-									if (!subValidation['status'])
-										if (subValidation['errorReasons'].count)
-											subValidation['errorReasons'].each{|reason|
-												errorReasons << reason
-											}
-										else
-											puts "There were no errorReasons but subValidation['status'] was false.."
-										end
+		createTerminal = msg['createTerminal']
+		termName = createTerminal['terminalName']
+
+		if (!getTerminal(termName))
+			addTerminal(termName)
+		end
+
+		replyObject = {
+			'status' => 'true',
+			'hash' => msg['hash'],
+			'createTerminal' => createTerminal,
+		}
+		replyString = replyObject.to_json
+		sendToClient(@clients[ws], replyString)
+
+		return(true)
+	end
+
+	def procMsg_createTaskBoard(ws, msg)
+		hash = 0
+		createTaskBoardValidation = {
+			'hash' => {
+				'classNames' => 'String',
+				'reqBits' => VM_OPTIONAL | VM_STRICT,
+			},
+			'createTaskBoard' => {
+				'classNames' => 'Hash',
+				'reqBits' => VM_REQUIRED | VM_STRICT,
+				'subObjects' => {
+					'taskBoardName' => {
+						'classNames' => 'String',
+						'reqBits' => VM_REQUIRED | VM_STRICT,
+						'matchExp' => '/^[\w\d-_\s]+$/'
+					}
+				}
+			}
+		}
+		vMsg = validateMsg(createTaskBoardValidation, msg)
+		if (!vMsg['status'])
+			generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+			return false
+		end
+
+		createTaskBoard = msg['createTaskBoard']
+		boardName = createTaskBoard['taskBoardName']
+
+		if (!getTaskBoard(boardName))
+			addTaskBoard(boardName)
+		end
+
+		replyObject = {
+			'status' => 'true',
+			'hash' => msg['hash'],
+			'createTaskBoard' => createTaskBoard,
+		}
+		replyString = replyObject.to_json
+		sendToClient(@clients[ws], replyString)
+		return(true)
+	end
+
+
+	def procMsg_openTerminal(ws,msg)
+		hash = 0
+		openTerminalValidation = {
+			'hash' => {
+				'classNames' => 'String',
+				'reqBits' => VM_OPTIONAL | VM_STRICT,
+			},
+			'openTerminal' => {
+				'classNames' => 'Hash',
+				'reqBits' => VM_REQUIRED | VM_STRICT,
+				'subObjects' => {
+					'termName' => {
+						'classNames' => 'String',
+						'reqBits' => VM_REQUIRED | VM_STRICT,
+						'matchExp' => '/^[\w\d-_\s]+$/'
+					}
+				}
+			}
+		}
+		vMsg = validateMsg(openTerminalValidation, msg)
+		if (!vMsg['status'])
+			generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'openTerminal')
+			return false
+		end
+
+		openTerminal = msg['openTerminal']
+		termName = openTerminal['termName']
+		puts "procMsg Open Terminal #{termName}"
+
+		if (!getTerminal(termName))
+			puts "Creating terminal"
+			addTerminal(termName)
+		end
+		client = @clients[ws]
+		client.addTerminal(getTerminal(termName))
+		@terminals[termName].addClient(client, ws)
+	end
+
+	def generateError(ws, hash, status, errorReasons, commandRequested)
+		clientReply = {
+			'hash' => hash,
+			'status' => status,
+			'errorReasons' => errorReasons,
+			'commandSet' => 'reply',
+			'commandType' => commandRequested,
+		}
+		puts $Project.dump(clientReply)
+		puts "Converting to json.."
+		clientString = clientReply.to_json
+		puts clientString
+		puts "Sending to client!"
+		sendToClient(@clients[ws], clientString)
+		return false
+	end
+
+	def procMsg_closeTerminal(ws,msg)
+	end
+
+	def procMsg_openDocument(ws, msg)
+		docName = msg["documentName"]
+		client = @clients[ws]
+		client.addDocument(docName)
+		@documents[docname].addClient(client)
+	end
+
+	def procMsg_closeDocument(ws, msg)
+	end
+
+	def procMsg_hintActiveDocument(ws, msg)
+	end
+
+	def procMsg_getFileTree(ws, msg)
+		return(@fileTree.getFileTreeJSON(ws, msg))
+	end
+
+	def procMsg_getChatList(ws, msg)
+		names = chatNames()
+		clientReply = {
+			'commandSet' => 'reply',
+			'commandType' => 'chat',
+			'command' => 'getChatList',
+			'getChatList' => {
+				'status' => true,
+				'chatList' => names,
+			},
+		}
+		clientString = clientReply.to_json
+
+		sendToClient(@clients[ws], clientString)
+	end
+
+	def validateMsg(validation, msg)
+		begin
+			puts "Enter validateMsg"
+			errorReasons = []
+			validation.each {|key, val|
+				puts "Key: #{key}, VAL:"
+				puts $Project.dump(val)
+				if (val['reqBits'] & VM_REQUIRED)
+					puts "VM_REQUIRED for #{key}"
+					if (!msg.has_key?(key))
+						puts "Msg has no key #{key}"
+						errorReasons << 'Missing required key: {#key}'
+					elsif (val.has_key?('classNames') && !(msg[key].class.name == val['classNames']))
+						puts "Msg has invalid clasName!"
+						className = msg[key].class.name
+						errorReasons << "Invalid class type: #{className}, should be #{val['classNames']}"
+					else
+						puts "Msg has key and proper className"
+						# Everything is OK, check subObjects if they exist!
+						begin
+							if (val.has_key?('classNames') && val['classNames'] == "Hash" && val.has_key?('subObjects'))
+								puts "classNames == Hash && val.has_key subOjects, call validateMsg() recursively"
+								subValidation = validateMsg(val['subObjects'], msg[key])
+								puts "validateMsg() recursive call complete"
+								if (!subValidation['status'])
+									if (subValidation['errorReasons'].count)
+										subValidation['errorReasons'].each{|reason|
+											errorReasons << reason
+										}
+									else
+										puts "There were no errorReasons but subValidation['status'] was false.."
 									end
 								end
-							rescue Exception => e
-								puts "There was an error!"
-								puts $Project.dump(e)
-								puts "Error: " + e.message
-								puts "Backtrace: " + e.backtrace
-								errorReasons << ['EXCEPTION! #{e.message}']
-								errorReasons.count ? myStatus = true : myStatus = false
-								return({'status' => myStatus, 'errorReasons' => errorReasons})
 							end
+						rescue Exception => e
+							puts "There was an error!"
+							puts $Project.dump(e)
+							puts "Error: " + e.message
+							puts "Backtrace: " + e.backtrace
+							errorReasons << ['EXCEPTION! #{e.message}']
+							errorReasons.count ? myStatus = true : myStatus = false
+							return({'status' => myStatus, 'errorReasons' => errorReasons})
 						end
 					end
-				}
-			rescue Exception => e
-				puts "There was an error!"
-				puts $Project.dump(e)
-				puts "Error: " + e.message
-				puts "Backtrace: " + e.backtrace
-				errorReasons << ['EXCEPTION! #{e.message}']
-				errorReasons.count ? myStatus = true : myStatus = false
-				return({'status' => myStatus, 'errorReasons' => errorReasons})
-			end
+				end
+			}
+		rescue Exception => e
+			puts "There was an error!"
+			puts $Project.dump(e)
+			puts "Error: " + e.message
+			puts "Backtrace: " + e.backtrace
+			errorReasons << ['EXCEPTION! #{e.message}']
 			errorReasons.count ? myStatus = true : myStatus = false
 			return({'status' => myStatus, 'errorReasons' => errorReasons})
 		end
+		errorReasons.count ? myStatus = true : myStatus = false
+		return({'status' => myStatus, 'errorReasons' => errorReasons})
+	end
 
-		def procMsg_downloadDocument(ws, msg)
-			puts "Enter procMsg_downloadDocument"
-			puts "JSON: " + msg.to_json
-			downloadDocumentValidation = {
-				'hash' => {
-					'classNames' => 'String',
-					'reqBits' => VM_OPTIONAL | VM_STRICT,
-				},
-				'downloadDocument' => {
-					'classNames' => 'Hash',
-					'reqBits' => VM_REQUIRED | VM_STRICT,
-					'subObjects' => {
-						'srcPath' => {
-							'classNames' => 'String',
-							'matchExp' => VM_REGEX_VALIDPATH,
-							'reqBits' => VM_REQUIRED | VM_STRICT,
-						},
+	def procMsg_downloadDocument(ws, msg)
+		puts "Enter procMsg_downloadDocument"
+		puts "JSON: " + msg.to_json
+		downloadDocumentValidation = {
+			'hash' => {
+				'classNames' => 'String',
+				'reqBits' => VM_OPTIONAL | VM_STRICT,
+			},
+			'downloadDocument' => {
+				'classNames' => 'Hash',
+				'reqBits' => VM_REQUIRED | VM_STRICT,
+				'subObjects' => {
+					'srcPath' => {
+						'classNames' => 'String',
+						'matchExp' => VM_REGEX_VALIDPATH,
+						'reqBits' => VM_REQUIRED | VM_STRICT,
 					},
 				},
-			}
+			},
+		}
 
-			hash = 0
-			if (msg.has_key?('hash'))
-				puts "Msg has hash!"
-				hash = msg['hash']
-			end
-			vMsg = validateMsg(downloadDocumentValidation, msg);
-			if (!vMsg['status'])
-				generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'downloadDocument')
-				return false
-			end
+		hash = 0
+		if (msg.has_key?('hash'))
+			puts "Msg has hash!"
+			hash = msg['hash']
+		end
+		vMsg = validateMsg(downloadDocumentValidation, msg);
+		if (!vMsg['status'])
+			generateError(ws, hash, vMsg['status'], vMsg['errorReasons'], 'downloadDocument')
+			return false
+		end
 
-			downloadDocument = msg['downloadDocument']
-			srcPath = downloadDocument['srcPath']
-			httpLink = @webServer.getBaseURL + '/download' + "?srcPath=#{srcPath}"
+		downloadDocument = msg['downloadDocument']
+		srcPath = downloadDocument['srcPath']
+		httpLink = @webServer.getBaseURL + '/download' + "?srcPath=#{srcPath}"
 
-			clientReply = {
-				'hash' => hash,
-				'status' => true,
-				'errorReasons' => false,
-				'commandSet' => 'reply',
-				'commandType' => 'downloadDocument',
-				'downloadDocument' => {
-					'httpLink' => httpLink,
+		clientReply = {
+			'hash' => hash,
+			'status' => true,
+			'errorReasons' => false,
+			'commandSet' => 'reply',
+			'commandType' => 'downloadDocument',
+			'downloadDocument' => {
+				'httpLink' => httpLink,
+			},
+		}
+		clientString = clientReply.to_json
+		sendToClient(@clients[ws], clientString)
+		puts "Sent to client: " + clientString
+		return true
+	end
+
+	def procMsg_getTaskBoardListJSON(ws = false, jsonMsg = false)
+		counter = 0;
+		jsonString = [
+			'id' => 'taskboardroot',
+			'parent' => '#',
+			'text' => 'Task Boards',
+			'type' => 'root',
+			'li_attr' => {
+				'class' => 'jsRoot',
+			},
+		]
+		@taskBoards.each { |key, c|
+			puts "taskBoards.each: taskName is " + c.taskName
+			counter = counter + 1
+			myJSON = {
+				'id' => c.taskName,
+				'parent' => 'taskboardroot',
+				'text' => c.taskName,
+				'type' => 'taskBoard',
+				'li_attr' => {
+					"class" => 'jsTreeTaskBoard',
 				},
+			}
+			jsonString << myJSON
+		}
+		if (ws != false)
+			jsonString = jsonString.to_json
+			clientReply = {
+				'commandSet' => 'taskBoard',
+				'command' => 'setTaskBoardTreeJSON',
+				'setTaskBoardTreeJSON' => {
+					'taskBoardTree' => jsonString,
+				}
 			}
 			clientString = clientReply.to_json
 			sendToClient(@clients[ws], clientString)
-			puts "Sent to client: " + clientString
 			return true
 		end
+		$Project.dump(jsonString);
+		return true
+	end
 
-		def procMsg_getTaskBoardListJSON(ws = false, jsonMsg = false)
-			counter = 0;
-			jsonString = [
-				'id' => 'taskboardroot',
-				'parent' => '#',
-				'text' => 'Task Boards',
-				'type' => 'root',
+
+	def procMsg_getChatListJSON(ws = false, jsonMsg = false)
+		counter = 0;
+		jsonString = [
+			'id' => 'chatroot',
+			'parent' => '#',
+			'text' => 'Chat Rooms',
+			'type' => 'root',
+			'li_attr' => {
+				'class' => 'jsRoot',
+			},
+		]
+		@chats.each { |key, c|
+			puts "Chats.each: roomName is " + c.roomName
+			counter = counter + 1
+			myJSON = {
+				'id' => c.roomName,
+				'parent' => 'chatroot',
+				'text' => c.roomName,
+				'type' => 'chat',
 				'li_attr' => {
-					'class' => 'jsRoot',
+					"class" => 'jsTreeChat',
 				},
-			]
-			@taskBoards.each { |key, c|
-				puts "taskBoards.each: taskName is " + c.taskName
-				counter = counter + 1
-				myJSON = {
-					'id' => c.taskName,
-					'parent' => 'taskboardroot',
-					'text' => c.taskName,
-					'type' => 'taskBoard',
-					'li_attr' => {
-						"class" => 'jsTreeTaskBoard',
-					},
-				}
-				jsonString << myJSON
 			}
-			if (ws != false)
-				jsonString = jsonString.to_json
-				clientReply = {
-					'commandSet' => 'taskBoard',
-					'command' => 'setTaskBoardTreeJSON',
-					'setTaskBoardTreeJSON' => {
-						'taskBoardTree' => jsonString,
-					}
+			jsonString << myJSON
+		}
+		if (ws != false)
+			jsonString = jsonString.to_json
+			clientReply = {
+				'commandSet' => 'chat',
+				'command' => 'setChatTreeJSON',
+				'setChatTreeJSON' => {
+					'chatTree' => jsonString,
 				}
-				clientString = clientReply.to_json
-				sendToClient(@clients[ws], clientString)
-				return true
-			end
-			$Project.dump(jsonString);
-			return true
-		end
-
-
-		def procMsg_getChatListJSON(ws = false, jsonMsg = false)
-			counter = 0;
-			jsonString = [
-				'id' => 'chatroot',
-				'parent' => '#',
-				'text' => 'Chat Rooms',
-				'type' => 'root',
-				'li_attr' => {
-					'class' => 'jsRoot',
-				},
-			]
-			@chats.each { |key, c|
-				puts "Chats.each: roomName is " + c.roomName
-				counter = counter + 1
-				myJSON = {
-					'id' => c.roomName,
-					'parent' => 'chatroot',
-					'text' => c.roomName,
-					'type' => 'chat',
-					'li_attr' => {
-						"class" => 'jsTreeChat',
-					},
-				}
-				jsonString << myJSON
 			}
-			if (ws != false)
-				jsonString = jsonString.to_json
-				clientReply = {
-					'commandSet' => 'chat',
-					'command' => 'setChatTreeJSON',
-					'setChatTreeJSON' => {
-						'chatTree' => jsonString,
-					}
-				}
-				clientString = clientReply.to_json
-				sendToClient(@clients[ws], clientString)
-				return true
-			end
-			$Project.dump(jsonString);
+			clientString = clientReply.to_json
+			sendToClient(@clients[ws], clientString)
 			return true
 		end
+		$Project.dump(jsonString);
+		return true
+	end
 
-		def procMsg_getTermListJSON(ws = false, jsonMsg = false)
-			counter = 0;
-			jsonString = [
-				'id' => 'terminalroot',
-				'parent' => '#',
-				'text' => 'Terminals',
-				'type' => 'root',
+	def procMsg_getTermListJSON(ws = false, jsonMsg = false)
+		counter = 0;
+		jsonString = [
+			'id' => 'terminalroot',
+			'parent' => '#',
+			'text' => 'Terminals',
+			'type' => 'root',
+			'li_attr' => {
+				'class' => 'jsRoot',
+			},
+		]
+		@terminals.each { |key, c|
+			myJSON = {
+				'id' => c.termName,
+				'parent' => 'terminalroot',
+				'text' => c.termName,
+				'type' => 'terminal',
 				'li_attr' => {
-					'class' => 'jsRoot',
+					"class" => 'jsTreeTerminal',
 				},
-			]
-			@terminals.each { |key, c|
-				myJSON = {
-					'id' => c.termName,
+			}
+			jsonString << myJSON
+		}
+		if (ws != false)
+			#			jsonString = jsonString.to_json
+			clientReply = {
+				'commandSet' => 'term',
+				'command' => 'setTermTreeJSON',
+				'setTermTreeJSON' => {
+					'termTree' => jsonString,
+				}
+			}
+			clientString = clientReply.to_json
+			sendToClient(@clients[ws], clientString)
+			return true
+		end
+		$Project.dump(jsonString);
+		return true
+	end
+
+
+
+	def addDocument(documentName, dbEntry = nil)
+		$Project.logMsg(LOG_FENTRY, "Called")
+		document = Document.new(self, documentName, @baseDirectory, nil)
+		if (dbEntry != nil)
+			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
+			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
+			if (dbEntry.filechanges.count > 0)
+				rval = dbEntry.calcCurrent()
+				data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
+				document.setContents(data)
+			end
+			dbEntry = nil
+			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
+			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
+		end
+
+		@documents[documentName] = document
+		return getDocument(documentName)
+	end
+
+	def getDocument(documentName, autoCreate = false)
+		if (@documents[documentName])
+			return @documents[documentName];
+		end
+		#puts "Invalid document name: #{documentName}"
+		return FALSE
+	end
+
+	def addTerminal(termName)
+		puts "addTerm called with #{termName}"
+		term = Terminal.new(self, termName);
+		@terminals[termName] = term;
+		myJSON = {
+			'commandSet' => 'term',
+			'command' => 'addTerm',
+			'addTerm' => {
+				'node' => {
+					'id' => termName,
 					'parent' => 'terminalroot',
-					'text' => c.termName,
+					'text' => termName,
 					'type' => 'terminal',
 					'li_attr' => {
 						"class" => 'jsTreeTerminal',
-					},
-				}
-				jsonString << myJSON
-			}
-			if (ws != false)
-				#			jsonString = jsonString.to_json
-				clientReply = {
-					'commandSet' => 'term',
-					'command' => 'setTermTreeJSON',
-					'setTermTreeJSON' => {
-						'termTree' => jsonString,
 					}
 				}
-				clientString = clientReply.to_json
-				sendToClient(@clients[ws], clientString)
-				return true
-			end
-			$Project.dump(jsonString);
-			return true
+			}
+		}
+		sendAll(myJSON.to_json)
+		return (getTerminal(termName))
+	end
+
+
+	def addChat(chatName)
+		chat = ChatChannel.new(self, chatName)
+		@chats[chatName] = chat
+		myJSON = {
+			'commandSet' => 'chat',
+			'command' => 'addChat',
+			'addChat' => {
+				'node' => {
+					'id' => chatName,
+					'parent' => 'chatroot',
+					'text' => chatName,
+					'type' => 'chat',
+					'li_attr' => {
+						"class" => 'jsTreeChat',
+					}
+				}
+			}
+		}
+		sendAll(myJSON.to_json)
+		return getChat(chatName)
+	end
+
+
+	def getChat(chatName)
+		if (@chats[chatName])
+			return @chats[chatName];
 		end
+		puts "Invalid chatroom name: #{chatName}"
+		return FALSE
+	end
+
+	def addTaskBoard(boardName)
+		board = TaskBoard.new(self, boardName)
+		@taskBoards[boardName] = board
+		myJSON = {
+			'commandSet' => 'taskBoard',
+			'command' => 'addTaskBoard',
+			'addTaskBoard' => {
+				'node' => {
+					'id' => boardName + "_TB",
+					'parent' => 'taskboardroot',
+					'text' => boardName,
+					'type' => 'taskBoard',
+					'li_attr' => {
+						"class" => 'jsTreeTaskBoard',
+					}
+				}
+			}
+		}
+		sendAll(myJSON.to_json)
+		return (boardName)
+	end
 
 
 
-		def addDocument(documentName, dbEntry = nil)
+	def getTaskBoard(boardName)
+		puts "getTaskBoard called with #{boardName}"
+		if (@taskBoards[boardName])
+			return @taskBoards[boardName];
+		end
+		return FALSE
+	end
+
+
+	def getClient(ws)
+		$Project.logMsg(LOG_FENTRY, "Called")
+		if (@clients[ws])
+			return(@clients[ws])
+		elsif
+			$Project.logMsg(LOG_ERROR, "Client with this ws identifier does not exist!")
+			$Project.logMsg(LOG_ERROR | LOG_DEBUG, $Project.dump(ws))
+			$Project.logMsg(LOG_ERROR | LOG_DEBUG, $Project.dump(@clients))
+			return FALSE
+		end
+	end
+
+	def addClient(ws)
+		client = Client.new(ws)
+		client.name = assignName("User")
+		if (@clients.has_key?(ws))
+			$Project.logMsg(LOG_ERROR, "This should be impossible -- asked to add client with existing ws. Undefined Behavior.")
+			$Project.logMsg(LOG_ERROR | LOG_DEBUG, $Project.dump(ws))
+			return(false)
+		end
+		@clients[ws] = client
+	end
+
+	def removeClient(ws)
+		begin
 			$Project.logMsg(LOG_FENTRY, "Called")
-			document = Document.new(self, documentName, @baseDirectory, nil)
-			if (dbEntry != nil)
-				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
-				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
-				if (dbEntry.filechanges.count > 0)
-					rval = dbEntry.calcCurrent()
-					data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
-					document.setContents(data)
-				end
-				dbEntry = nil
-				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
-				$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
-			end
-
-			@documents[documentName] = document
-			return getDocument(documentName)
-		end
-
-		def getDocument(documentName, autoCreate = false)
-			if (@documents[documentName])
-				return @documents[documentName];
-			end
-			#puts "Invalid document name: #{documentName}"
-			return FALSE
-		end
-
-		def addTerminal(termName)
-			puts "addTerm called with #{termName}"
-			term = Terminal.new(self, termName);
-			@terminals[termName] = term;
-			myJSON = {
-				'commandSet' => 'term',
-				'command' => 'addTerm',
-				'addTerm' => {
-					'node' => {
-						'id' => termName,
-						'parent' => 'terminalroot',
-						'text' => termName,
-						'type' => 'terminal',
-						'li_attr' => {
-							"class" => 'jsTreeTerminal',
-						}
-					}
-				}
-			}
-			sendAll(myJSON.to_json)
-			return (getTerminal(termName))
-		end
-
-
-		def addChat(chatName)
-			chat = ChatChannel.new(self, chatName)
-			@chats[chatName] = chat
-			myJSON = {
-				'commandSet' => 'chat',
-				'command' => 'addChat',
-				'addChat' => {
-					'node' => {
-						'id' => chatName,
-						'parent' => 'chatroot',
-						'text' => chatName,
-						'type' => 'chat',
-						'li_attr' => {
-							"class" => 'jsTreeChat',
-						}
-					}
-				}
-			}
-			sendAll(myJSON.to_json)
-			return getChat(chatName)
-		end
-
-
-		def getChat(chatName)
-			if (@chats[chatName])
-				return @chats[chatName];
-			end
-			puts "Invalid chatroom name: #{chatName}"
-			return FALSE
-		end
-
-		def addTaskBoard(boardName)
-			board = TaskBoard.new(self, boardName)
-			@taskBoards[boardName] = board
-			myJSON = {
-				'commandSet' => 'taskBoard',
-				'command' => 'addTaskBoard',
-				'addTaskBoard' => {
-					'node' => {
-						'id' => boardName + "_TB",
-						'parent' => 'taskboardroot',
-						'text' => boardName,
-						'type' => 'taskBoard',
-						'li_attr' => {
-							"class" => 'jsTreeTaskBoard',
-						}
-					}
-				}
-			}
-			sendAll(myJSON.to_json)
-			return (boardName)
-		end
-
-
-
-		def getTaskBoard(boardName)
-			puts "getTaskBoard called with #{boardName}"
-			if (@taskBoards[boardName])
-				return @taskBoards[boardName];
-			end
-			return FALSE
-		end
-
-
-		def getClient(ws)
-			if (@clients[ws])
-				return(@clients[ws])
-			elsif
-				puts "Invalid client with socket: #{ws}"
-				return FALSE
-			end
-		end
-
-		def addClient(ws)
-			client = Client.new(ws);
-			client.name = assignName("User");
-			@clients[ws] = client;
-		end
-
-		def removeClient(ws)
 			$Project.logMsg(LOG_INFO, "Removing client -- informing listeners of this event")
-			client = @clients[ws]
+			client = getClient(ws)
+			if (client === false)
+				$Project.logMsg(LOG_ERROR, "Unable to remove client because it seems to not exist in @clients[ws]")
+				$Project.logMsg(LOG_ERROR | LOG_DEBUG, $Project.dump(ws))
+				$Project.logMsg(LOG_FRETURN, "Returning false")
+				return(false)
+			end
 			$Project.logMsg(LOG_DEBUG | LOG_DUMP, $Project.dump(client))
-			$Project.logMsg(LOG_INFO, "Iterating through client.terms.each")
+			$Project.logMsg(LOG_INFO, "Iterating through client.chats.each, of which there are #{client.chats.count} entries")
 
 			client.chats.each do |key, value|
 				$Project.logMsg(LOG_DEBUG | LOG_DUMP, $Project.dump(key))
 				$Project.logMsg(LOG_DEBUG | LOG_DUMP, $Project.dump(value))
-				$Project.logMsg(LOG_INFO, "Remove client #{client.name} from Chat #{value.termName}")
+				$Project.logMsg(LOG_INFO, "Remove client #{client.name} from Chat #{value.roomName}")
 				value.remClient(client)
 			end
 
-			$Project.logMsg(LOG_INFO, "Iterating through client.terms.each")
+			$Project.logMsg(LOG_INFO, "Iterating through client.terms.each, of which there are #{client.terms.count} entries")
 			client.terms.each do |key, value|
 				$Project.logMsg(LOG_DEBUG | LOG_DUMP, $Project.dump(key))
 				$Project.logMsg(LOG_DEBUG | LOG_DUMP, $Project.dump(value))
 				$Project.logMsg(LOG_INFO, "Remove client #{client.name} from Terminal #{value.termName}")
 				value.remClient(client)
 			end
-			client = @clients.delete(ws);
-		end
 
-		def sendToClients(type, info)
-			sendAll(info)
-		end
 
-		def sendToClientsListeningExcept(oclient, document, msg)
-			@clients.each do |websocket, client|
-				if (oclient != client && client.listeningToDocument(document))
-					websocket.send msg
-				end
-			end
+			client = nil
+			@clients.delete(ws)
+		rescue Exception => e
+			$Project.logMsg(LOG_ERROR | LOG_EXCEPTION, "There was an exception")
+			$Project.logMsg(LOG_ERROR | LOG_EXCEPTION | LOG_DUMP, $Project.dump(e))
+			$Project.logMsg(LOG_ERROR | LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, $Project.dump(e.backtrace))
 		end
+	end
 
-		def sendToClientsListeningExceptWS(ws, document, msg)
-			@clients.each do |websocket, client|
-				if (!(websocket == ws) && client.listeningToDocument(document))
-					websocket.send msg
-				else
-					puts "sendToClientsListeningExceptWS(): Skipping client"
-				end
-			end
-		end
+	def sendToClients(type, info)
+		sendAll(info)
+	end
 
-		def sendToClientsExcept(oclient, msg)
-			@clients.each do |websocket, client|
-				if (oclient != client)
-					websocket.send msg
-				end
-			end
-		end
-
-		def sendAll(msg)
-			@clients.each do |websocket, client|
+	def sendToClientsListeningExcept(oclient, document, msg)
+		@clients.each do |websocket, client|
+			if (oclient != client && client.listeningToDocument(document))
 				websocket.send msg
 			end
-			puts "Sent to all: #{msg}"
 		end
+	end
 
-		def sendToClient(client, msg)
-			if (client.websocket)
-				client.websocket.send msg
+	def sendToClientsListeningExceptWS(ws, document, msg)
+		@clients.each do |websocket, client|
+			if (!(websocket == ws) && client.listeningToDocument(document))
+				websocket.send msg
 			else
-				client.send msg
+				puts "sendToClientsListeningExceptWS(): Skipping client"
 			end
 		end
+	end
 
-		def chatNames
-			@chats.collect{|key, c| c.name}.sort
-		end
-
-		def clientNames
-			@clients.collect{|websocket, c| c.name}.sort
-		end
-
-		def assignName(rName)
-			existing_names = self.clientNames
-			if existing_names.include?(rName)
-				i = 1
-				while existing_names.include?(rName + i.to_s)
-					i+= 1
-				end
-				rName += i.to_s
+	def sendToClientsExcept(oclient, msg)
+		@clients.each do |websocket, client|
+			if (oclient != client)
+				websocket.send msg
 			end
-			puts "New client connected: #{rName}"
-			return rName
 		end
 	end
 
-
-	puts "First line of code to run"
-	baseDirectory = File.expand_path(File.dirname(__FILE__) + "/../../")
-	puts "Using directory " + baseDirectory
-	$Project = ProjectServer.new('CARBIDE-SERVER', baseDirectory)
-	@myProject = $Project
-	@webServer = WebServer.new('0.0.0.0', 'alpha0.carb-ide.com', 6400, baseDirectory)
-	Thread.abort_on_exception = false
-
-	myProjectThread = Thread.new {
-		@myProject.start()
-	}
-	puts "Registering myProject with webServer"
-	@webServer.registerProject(@myProject)
-
-
-	webServerThread = Thread.new {
-		@webServer.start()
-		puts $Project.dump(myWebServer)
-	}
-	puts "All done! Now we gogogo!"
-
-	@myProject.registerWebServer(@webServer)
-
-
-	puts webServerThread.status
-	puts myProjectThread.status
-
-	while true do
-		if (!webServerThread.alive? || !myProjectThread.alive?)
-			puts "WS Status: " + webServerThread.status.to_s
-			puts "Project Status: " + myProjectThread.status.to_s
-			puts "A thread has died."
-			webServerThread.exit
-			myProjectThread.exit
-			exit
+	def sendAll(msg)
+		@clients.each do |websocket, client|
+			websocket.send msg
 		end
-		sleep 1
+		puts "Sent to all: #{msg}"
 	end
 
-	webServerThread.exit
-	myProjectThread.exit
-	@DEH = DirectoryEntryHelper.new()
-
-
-	@DEH.setOptions('CARBIDE-SERVER', myProject)
-
-
-	if (false && (newDirectories.count > 0))
-		newDirectories.each do |d|
-			a = DirectoryEntryHelper.create(d)
-			puts $Project.dump(d[:owner])
+	def sendToClient(client, msg)
+		if (client.websocket)
+			client.websocket.send msg
+		else
+			client.send msg
 		end
 	end
 
-	if (false && (newFiles.count > 0))
-		puts "newFiles.each do.."
-		newFiles.each do |d|
-			@DEH.create(d)
-			puts $Project.dump(d[:owner])
-		end
+	def chatNames
+		@chats.collect{|key, c| c.name}.sort
 	end
 
-	# subDirs = [
-	#   'config',
-	#   'db',
-	#   'models',
-	#   'testing',
-	#   'db/migrate',
-	# ]
-	#
-	# puts "Creating directories.."
-	# @DEH.mkDir("/server", 1)
-	# subDirs.each do |d|
-	#   @DEH.mkDir('/server/' + d, 1)
-	# end
-	puts "New file tree:"
-	puts "Testing logins"
+	def clientNames
+		@clients.collect{|websocket, c| c.name}.sort
+	end
 
-	frank = UserController.login({:email => 'frankd412@gmail.com', :password => 'bx115'})
-	mike = UserController.login({:email => 'mikew@frank-d.info', :password => 'mikew'})
-	john = UserController.login({:email => 'john@frank-d.info', :password => 'badpassword'})
+	def assignName(rName)
+		existing_names = self.clientNames
+		if existing_names.include?(rName)
+			i = 1
+			while existing_names.include?(rName + i.to_s)
+				i+= 1
+			end
+			rName += i.to_s
+		end
+		puts "New client connected: #{rName}"
+		return rName
+	end
+end
 
-	puts "There are " + User.count.to_s + " users in the database"
-	puts "There are " + DirectoryEntry.count.to_s + " file descriptors in the database"
+
+puts "First line of code to run"
+baseDirectory = File.expand_path(File.dirname(__FILE__) + "/../../")
+puts "Using directory " + baseDirectory
+$Project = ProjectServer.new('CARBIDE-SERVER', baseDirectory)
+@myProject = $Project
+@webServer = WebServer.new('0.0.0.0', 'alpha0.carb-ide.com', 6400, baseDirectory)
+Thread.abort_on_exception = false
+
+myProjectThread = Thread.new {
+	@myProject.start()
+}
+puts "Registering myProject with webServer"
+@webServer.registerProject(@myProject)
+
+
+webServerThread = Thread.new {
+	@webServer.start()
+	puts $Project.dump(myWebServer)
+}
+puts "All done! Now we gogogo!"
+
+@myProject.registerWebServer(@webServer)
+
+
+puts webServerThread.status
+puts myProjectThread.status
+
+while true do
+	if (!webServerThread.alive? || !myProjectThread.alive?)
+		puts "WS Status: " + webServerThread.status.to_s
+		puts "Project Status: " + myProjectThread.status.to_s
+		puts "A thread has died."
+		webServerThread.exit
+		myProjectThread.exit
+		exit
+	end
+	sleep 1
+end
+
+webServerThread.exit
+myProjectThread.exit
+@DEH = DirectoryEntryHelper.new()
+
+
+@DEH.setOptions('CARBIDE-SERVER', myProject)
+
+
+if (false && (newDirectories.count > 0))
+	newDirectories.each do |d|
+		a = DirectoryEntryHelper.create(d)
+		puts $Project.dump(d[:owner])
+	end
+end
+
+if (false && (newFiles.count > 0))
+	puts "newFiles.each do.."
+	newFiles.each do |d|
+		@DEH.create(d)
+		puts $Project.dump(d[:owner])
+	end
+end
+
+# subDirs = [
+#   'config',
+#   'db',
+#   'models',
+#   'testing',
+#   'db/migrate',
+# ]
+#
+# puts "Creating directories.."
+# @DEH.mkDir("/server", 1)
+# subDirs.each do |d|
+#   @DEH.mkDir('/server/' + d, 1)
+# end
+puts "New file tree:"
+puts "Testing logins"
+
+frank = UserController.login({:email => 'frankd412@gmail.com', :password => 'bx115'})
+mike = UserController.login({:email => 'mikew@frank-d.info', :password => 'mikew'})
+john = UserController.login({:email => 'john@frank-d.info', :password => 'badpassword'})
+
+puts "There are " + User.count.to_s + " users in the database"
+puts "There are " + DirectoryEntry.count.to_s + " file descriptors in the database"
