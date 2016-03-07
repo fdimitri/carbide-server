@@ -11,7 +11,6 @@ require 'mysql2'
 require 'openssl'
 require 'base64'
 require 'objspace'
-
 require 'activerecord-import'
 
 VM_OPTIONAL =   0x00001
@@ -35,7 +34,10 @@ LOG_FRETURN 		=0x00000400
 LOG_FRPARAM	    =0x00000800
 LOG_BACKTRACE   =0x00001000
 LOG_MALLOC		  =0x00002000
-LOG_OPTION_ENTRIES  = 20
+
+LOG_OPTION_ENTRIES  = 10
+LOG_OPTION_INTERVAL = (1.5).seconds
+
 SLOG_DUMP_YAML		=0x00000001
 SLOG_DUMP_JSON  	=0x00000002
 SLOG_DUMP_INSPECT =0x00000004
@@ -151,23 +153,24 @@ class ProjectServer
 		sleParams = {
 			:entrytime => Time.now,
 			:flags => logLevel,
-			:source => "#{callingFunction}:#{callingLine}",
-			:message => msg}
-		# if (@sleThreads.count > 10)
-		# 	@sleThreads.each do |sleThr|
-		# 		sleThr.join
-		# 	end
-		# end
-		# @sleThreads.delete_if { |thread| !thread.status }
-		#
-		# @sleThreads << Thread.new(sleParams) do
- 	# 		ServerLogEntry.create(sleParams)
-		# end
-		@sleData << ServerLogEntry.new(sleParams)
-		if (@sleData.size > LOG_OPTION_ENTRIES)
+			:source => "#{callingFile}:#{callingFunction}:#{callingLine}",
+			:message => msg
+		}
+		@sleDataMutex.synchronize {
+			@sleData << ServerLogEntry.new(sleParams)
+		}
+	end
+
+	def flushMessages(minSize = 1)
+		@sleDataMutex.synchronize {
+			if (@sleData.size < minSize)
+				return(false)
+			end
+			flushedEntries = @sleData.size
 			ServerLogEntry.import(@sleData)
-			@sleData = [ ]
-		end
+			@sleData = []
+			return(flushedEntries)
+		}
 	end
 
 		def dump(object)
@@ -198,6 +201,18 @@ class ProjectServer
 		end
 
 		def initialize(projectName, baseDirectory)
+			@flushMsgThread = Thread.new {
+				while (1)
+					rval = flushMessages(LOG_OPTION_ENTRIES)
+					if (rval === false)
+						puts "No messages to flush to SQL"
+					else
+						puts "Flushed #{rval} messages"
+					end
+					sleep(LOG_OPTION_INTERVAL)
+				end
+
+			}
 			$Project = self
 			@logLevel = LOG_ERROR | LOG_WARN | LOG_EXCEPTION
 			@logLevel = (@logLevel & ~(LOG_FRPARAM))
@@ -205,6 +220,7 @@ class ProjectServer
 			@logParams = SLOG_DUMP_INSPECT
 			@sleThreads = []
 			@sleData = []
+			@sleDataMutex = Mutex.new
 			puts "logLevel: " + "%#b" % "#{@logLevel}"
 			@chats = { }
 			@clients = { }
@@ -216,6 +232,7 @@ class ProjectServer
 			@FileTree = FileTreeX.new
 			@FileTree.setOptions(projectName, self)
 			@baseDirectory = baseDirectory
+
 			readTree()
 			for n in 0..0
 				#Lots of bash consoles and chats by default to stress test and
@@ -223,6 +240,7 @@ class ProjectServer
 				addChat('StdDev' + n.to_s)
 				addTerminal('Default_Terminal' + n.to_s)
 			end
+
 		end
 
 		def start(opts = { })
