@@ -93,6 +93,10 @@ class DBFSBase
     rescue Exception => e
       $Project.logMsg(LOG_EXCEPTION, "Caught Exception!")
       $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, "Exception:\n" + $Project.dump(e))
+      if (e.backtrace)
+        $Project.logMsg(LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, "Backtrace:\n" + $Project.dump(e.backtrace))
+      end
+
     end
     return data
   end

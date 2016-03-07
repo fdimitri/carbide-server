@@ -11,7 +11,9 @@ require 'mysql2'
 require 'openssl'
 require 'base64'
 require 'objspace'
+
 require 'activerecord-import'
+
 VM_OPTIONAL =   0x00001
 VM_REQUIRED =   0x00002
 VM_NOTALLOW =   0x00004
