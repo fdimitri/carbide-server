@@ -871,11 +871,10 @@ class ProjectServer
 		return true
 	end
 
-
-	while (!t.alive?)
-	end
-
 	def addDocumentBase(document, dbEntry = nil)
+		$Project.logMsg(LOG_FENTRY, "Called")
+		$Project.logMsg(LOG_FPARAMS, "document:" + $Project.dump(document))
+		$Project.logMsg(LOG_FPARAMS, "dbEntry:" + $Project.dump(dbEntry))
 		if (dbEntry != nil)
 			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
 			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
@@ -887,8 +886,9 @@ class ProjectServer
 			dbEntry = nil
 			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
 			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
+		else
+			$Project.logMsg(LOG_WARN, "Nothing for me to do, we were called without dbEntry")
 		end
-
 	end
 
 	def addDocument(documentName, dbEntry = nil)
