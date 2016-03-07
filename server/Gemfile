@@ -35,4 +35,4 @@ gem 'omniauth-openid', :github => 'intridea/omniauth-openid'
 gem 'omniauth-google-oauth2'
 gem 'em-websocket'
 gem 'bcrypt'
-
+gem 'activerecord-import'
