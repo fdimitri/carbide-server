@@ -214,17 +214,21 @@ class ProjectServer
 
 	def flushAddDocuments()
 		while (1)
-			@flushDocumentsThread.each do |docThread|
-				$Project.logMsg(LOG_INFO | LOG_DEBUG, "Checking addDocument thread")
-				$Project.logMsg(LOG_INFO | LOG_DEBUG, $Project.dump(docThread))
-				next if (docThread.status.to_s == "run")
-				next if (docThread.status.to_s == "sleep")
-				next if (docThread.status.to_s == "aborting")
-				$Project.logMsg(LOG_INFO | LOG_DEBUG, "Joining thread")
-				$Project.logMsg(LOG_INFO | LOG_DEBUG, $Project.dump(docThread.value))
-				docThread.join
+			if (@addDocumentThreads.count < 1)
+				$Project.logMsg(LOG_INFO | LOG_VERBOSE, "There were no document threads to flush"
+			else
+				@addDocumentThreads.each do |docThread|
+					$Project.logMsg(LOG_INFO | LOG_DEBUG, "Checking addDocument thread")
+					$Project.logMsg(LOG_INFO | LOG_DEBUG, $Project.dump(docThread))
+					next if (docThread.status.to_s == "run")
+					next if (docThread.status.to_s == "sleep")
+					next if (docThread.status.to_s == "aborting")
+					$Project.logMsg(LOG_INFO | LOG_DEBUG, "Joining thread")
+					$Project.logMsg(LOG_INFO | LOG_DEBUG | LOG_DUMP, $Project.dump(docThread.value))
+					docThread.join
+				end
+				@addDocumentsThreads.delete_if { |thread| !thread.status}
 			end
-			@flushDocumentsThread.delete_if { |thread| !thread.status}
 			sleep(LOG_OPTION_INTERVAL)
 		end
 	end
@@ -281,12 +285,18 @@ class ProjectServer
 			ws.onmessage { |msg| handleMessage(ws, msg) }
 			ws.onclose   { removeClient(ws) }
 			ws.onerror   { |error|
-				if (error.kind_of?(EventMachine::WebSocket::WebSocketError))
-					$Project.logMsg(LOG_ERROR, "WebSocketError..")
-					$Project.logMsg(LOG_ERROR | LOG_DEBUG, $Project.dump(error))
-				else
-					$Project.logMsg(LOG_ERROR, "Websocket received non WebSocketError..")
-					$Project.logMsg(LOG_ERROR | LOG_DEBUG, $Project.dump(error))
+				begin
+					if (error.kind_of?(EventMachine::WebSocket::WebSocketError))
+						$Project.logMsg(LOG_ERROR, "WebSocketError..")
+						$Project.logMsg(LOG_ERROR | LOG_DEBUG, $Project.dump(error))
+					else
+						$Project.logMsg(LOG_ERROR, "Websocket received non WebSocketError..")
+						$Project.logMsg(LOG_ERROR | LOG_DEBUG, $Project.dump(error))
+					end
+				rescue
+					$Project.logMsg(LOG_ERROR | LOG_EXCEPTION, "There was an exception")
+					$Project.logMsg(LOG_ERROR | LOG_EXCEPTION | LOG_DUMP, $Project.dump(e))
+					$Project.logMsg(LOG_ERROR | LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, $Project.dump(e.backtrace))
 				end
 			}
 		end
@@ -862,15 +872,10 @@ class ProjectServer
 	end
 
 
-	def addDocument(documentName, dbEntry = nil)
-		@addDocumentThreads << Thread.new(documentName, dbEntry) {
-			addDocumentBase(documentName, dbEntry)
-		}
+	while (!t.alive?)
 	end
 
-	def addDocumentBase(documentName, dbEntry = nil)
-		$Project.logMsg(LOG_FENTRY, "Called")
-		document = Document.new(self, documentName, @baseDirectory, dbEntry)
+	def addDocumentBase(document, dbEntry = nil)
 		if (dbEntry != nil)
 			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "dbEntry ObjectSpace.memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(dbEntry)))
 			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
@@ -884,11 +889,19 @@ class ProjectServer
 			$Project.logMsg(LOG_DEBUG | LOG_MALLOC, "Document memsize_of(): " + $Project.dump(ObjectSpace.memsize_of(document)))
 		end
 
+	end
+
+	def addDocument(documentName, dbEntry = nil)
+		$Project.logMsg(LOG_FENTRY, "Called")
+		document = Document.new(self, documentName, @baseDirectory, dbEntry)
+		t = Thread.new(document, dbEntry) {
+			addDocumentBase(document, dbEntry)
+		}
+		@addDocumentThreads << t
 		@mutexDocuments.synchronize {
 			@documents[documentName] = document
 		}
 		return getDocument(documentName)
-
 	end
 
 	def getDocument(documentName, autoCreate = false)
