@@ -214,9 +214,6 @@ class ProjectServer
 
 	def flushAddDocuments()
 		while (1)
-			if (@flushDocumentsThread.count < 1)
-				return false
-			end
 			@flushDocumentsThread.each do |docThread|
 				$Project.logMsg(LOG_INFO | LOG_DEBUG, "Checking addDocument thread")
 				$Project.logMsg(LOG_INFO | LOG_DEBUG, $Project.dump(docThread))
@@ -234,43 +231,48 @@ class ProjectServer
 
 
 	def initialize(projectName, baseDirectory)
-		@flushMsgThread = Thread.new {
-			logMsgFlusher()
-		}
-		@flushDocumentsThread = Thread.new {
-			flushAddDocuments()
-		}
-		$Project = self
-		# @logLevel = LOG_ERROR | LOG_WARN | LOG_EXCEPTION
-		# @logLevel = (@logLevel & ~(LOG_FRPARAM))
-		# @logLevel = (@logLevel & ~(LOG_DUMP))
-		@logLevel = 0xFFFFFFFF
-		@logParams = SLOG_DUMP_INSPECT
-		@sleThreads = []
-		@sleData = []
-		@sleDataMutex = Mutex.new
-		@mutexDocuments = Mutex.new
-		@addDocumentThreads = []
-		puts "logLevel: " + "%#b" % "#{@logLevel}"
-		@chats = { }
-		@clients = { }
-		@documents = { }
-		@terminals = { }
-		@taskBoards = { }
-		@webServer = nil
-		@projectName = projectName
-		@FileTree = FileTreeX.new
-		@FileTree.setOptions(projectName, self)
-		@baseDirectory = baseDirectory
+		begin
+			@flushMsgThread = Thread.new {
+				logMsgFlusher()
+			}
+			@flushDocumentsThread = Thread.new {
+				flushAddDocuments()
+			}
+			$Project = self
+			# @logLevel = LOG_ERROR | LOG_WARN | LOG_EXCEPTION
+			# @logLevel = (@logLevel & ~(LOG_FRPARAM))
+			# @logLevel = (@logLevel & ~(LOG_DUMP))
+			@logLevel = 0xFFFFFFFF
+			@logParams = SLOG_DUMP_INSPECT
+			@sleThreads = []
+			@sleData = []
+			@sleDataMutex = Mutex.new
+			@mutexDocuments = Mutex.new
+			@addDocumentThreads = []
+			puts "logLevel: " + "%#b" % "#{@logLevel}"
+			@chats = { }
+			@clients = { }
+			@documents = { }
+			@terminals = { }
+			@taskBoards = { }
+			@webServer = nil
+			@projectName = projectName
+			@FileTree = FileTreeX.new
+			@FileTree.setOptions(projectName, self)
+			@baseDirectory = baseDirectory
 
-		readTree()
-		for n in 0..0
-			#Lots of bash consoles and chats by default to stress test and
-			# to check GUI functionality
-			addChat('StdDev' + n.to_s)
-			addTerminal('Default_Terminal' + n.to_s)
+			readTree()
+			for n in 0..0
+				#Lots of bash consoles and chats by default to stress test and
+				# to check GUI functionality
+				addChat('StdDev' + n.to_s)
+				addTerminal('Default_Terminal' + n.to_s)
+			end
+		rescue Exception => e
+			$Project.logMsg(LOG_ERROR | LOG_EXCEPTION, "There was an exception")
+			$Project.logMsg(LOG_ERROR | LOG_EXCEPTION | LOG_DUMP, $Project.dump(e))
+			$Project.logMsg(LOG_ERROR | LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, $Project.dump(e.backtrace))
 		end
-
 	end
 
 	def start(opts = { })
@@ -1126,18 +1128,19 @@ Thread.abort_on_exception = false
 myProjectThread = Thread.new {
 	@myProject.start()
 }
+
 puts "Registering myProject with webServer"
 @webServer.registerProject(@myProject)
 
 
 webServerThread = Thread.new {
 	@webServer.start()
-	puts $Project.dump(myWebServer)
 }
-puts "All done! Now we gogogo!"
 
+puts "Registering webServer with myProject"
 @myProject.registerWebServer(@webServer)
 
+puts "All done! Now we gogogo!"
 
 puts webServerThread.status
 puts myProjectThread.status
