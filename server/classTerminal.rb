@@ -9,7 +9,7 @@ class TerminalBase
 
 	def initialize(project, termName)
 		$Project.logMsg(LOG_FENTRY, "Entering function")
-		$Project.logMsg(LOG_FPARAMS, "project:" + $Project.dump(project))
+		#$Project.logMsg(LOG_FPARAMS, "project:" + $Project.dump(project))
 		$Project.logMsg(LOG_FPARAMS, "termName: #{termName}")
 		@project = project
 		@termName = termName

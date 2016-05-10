@@ -1,21 +1,51 @@
+DOC_EMPTY =0x00000001
+
 class DocumentBase
 
   attr_accessor :name
   attr_accessor :project
   attr_accessor :clients
-
+  attr_accessor :dbEntry
+  
   def initialize(project, name, baseDirectory, dbEntry = nil)
     @project = project
     @name = name
     @revision = 0
     @baseDirectory = baseDirectory
-    @data = Array.new(1, "");
-    @data.insert(' ');
     @clients = { };
     @t = { }
     @rng = Random.new(Time.now.to_i)
     @nonce = @rng.rand(1..9000)
     @dbEntry = dbEntry
+    @flags |= DOC_EMPTY
+  end
+
+  def unloadDocumentData()
+    $Project.logMsg(LOG_FENTRY, "Called")
+    @data = nil
+    @flags |= DOC_EMPTY
+  end
+
+  def loadDocumentData()
+    $Project.logMsg(LOG_FENTRY, "Called")
+    begin
+      if (@dbEntry != nil)
+        if (@dbEntry.filechanges.count > 0)
+          data = @dbEntry.calcCurrent()
+          data = data[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
+          setContents(data)
+          data = nil
+        end
+        $Project.logMsg(LOG_WARN, "There are no fileChange entries for this document")
+      else
+        $Project.logMsg(LOG_ERROR, "Asked to load Document Data but there was no dbEntry passed to us on init")
+        data = "".encode("UTF-8")
+        setContents(data)
+      end
+    rescue Exception => e
+      $Project.logMsg(LOG_ERROR | LOG_EXCEPTION, "Rescued from error!")
+      $Project.logMsg(LOG_ERROR | LOG_EXCEPTION, $Project.dump(e))
+    end
   end
 
   def addClient(client, ws)
@@ -24,6 +54,9 @@ class DocumentBase
 
   def remClient(ws)
     @clients.delete(ws)
+    if (@clients.count == 0 && @data.count > 100)
+      unloadDocumentData()
+    end
   end
 
   def getCurrentRevision()
@@ -115,14 +148,19 @@ class DocumentBase
     if (data.is_a?(String))
       data = data.gsub("\r\n","\n").gsub("\r","")
       @data = data.split("\n")
+      @flags &= ~DOC_EMPTY
+      return(true)
     elsif (data.is_a?(Array))
       if (data.length == 1)
         @data = data.first.split("\n")
       else
         @data = data
       end
+      @flags &= ~DOC_EMPTY
+      return(true)
     else
       puts "Document::setContents(): Data was not a string or array!?"
+      return(false)
     end
   end
 
@@ -131,7 +169,8 @@ end
 
 class Document < DocumentBase
   def procMsg(client, jsonMsg)
-    puts "Asked to process a message for myself: #{name} from client #{client.name}"
+    $Project.logMsg(LOG_FENTRY, "Called to process a message")
+    $Project.logMsg(LOG_FPARAMS, "Client Name: #{client.name} and Message Data: #{jsonMsg.inspect}")
     if (self.respond_to?("procMsg_#{jsonMsg['command']}"))
       puts "Found a function handler for  #{jsonMsg['command']}"
       self.send("procMsg_#{jsonMsg['command']}", client, jsonMsg)
@@ -182,16 +221,55 @@ class Document < DocumentBase
   end
 
   def procMsg_getContents(client, jsonMsg)
-    @data.each { |d|
-      if (d.is_a?(String))
-        d = d.sub("\n","").sub("\r","")
-      else
-        $Project.logMsg(LOG_ERROR, "Ran into an error with the data array -- element is not a string. Type is: " + d.class.to_s)
-        $Project.logMsg(LOG_ERROR | LOG_DUMP, $Project.dump(d));
-      end
-    }
+    $Project.logMsg(LOG_FENTRY, "Called")
     begin
-      puts "procMsg_getContents(): Creating client reply.."
+      if (@flags & DOC_EMPTY)
+        rval = loadDocumentData()
+        if (rval === false)
+          $Project.logMsg(LOG_ERROR | LOG_DEBUG, "loadDocumentData() returned false")
+          @data = nil
+        end
+      end
+
+      if (@data && @data.is_a?(Array))
+        @data.each { |d|
+          if (d.is_a?(String))
+            d = d.sub("\n","").sub("\r","")
+          else
+            $Project.logMsg(LOG_ERROR | LOG_DEBUG, "Ran into an error with the data array -- element is not a string. Type is: " + d.class.to_s)
+            $Project.logMsg(LOG_ERROR | LOG_DUMP | LOG_DEBUG, $Project.dump(d))
+            return(false)
+          end
+        }
+      else
+        $Project.logMsg(LOG_ERROR, "@data wasn't an array??")
+        $Project.logMsg(LOG_ERROR, $Project.dump(@data))
+        clientReply = {
+          'commandSet' => 'document',
+          'command' => 'documentSetContents',
+          'targetDocument' => @name,
+          'documentSetContents' => {
+            'documentRevision' => @revision,
+            'numLines' => 1,
+            'docHash' => getHash(@revision),
+            'data' => "!!! CARB/IDE ERROR LOADING THIS DOCUMENT !!!\n\nPlease submit a bug report!".encode('UTF-8', invalid: :replace, undef: :replace, replace: '@'),
+            'document' => @name,
+          }
+        }
+        $Project.logMsg(LOG_INFO, "Sending client reply for failed document..")
+        clientString = clientReply.to_json
+        @project.sendToClient(client, clientString)
+        $Project.logMsg(LOG_FRETURN,  "Returning false, function should no longer continue..")
+        return(false)
+      end
+    rescue Exception => e
+      $Project.logMsg(LOG_ERROR | LOG_EXCEPTION, "There was an exception")
+      $Project.logMsg(LOG_ERROR | LOG_EXCEPTION | LOG_DUMP, $Project.dump(e))
+      $Project.logMsg(LOG_ERROR | LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, $Project.dump(e.backtrace))
+    end
+
+    begin
+      $Project.logMsg(LOG_INFO, "Creating client reply..")
       clientReply = {
         'commandSet' => 'document',
         'command' => 'documentSetContents',
@@ -205,18 +283,14 @@ class Document < DocumentBase
         }
       }
     rescue Exception => e
-      puts "There was an error!"
-      puts $Project.dump(e)
-      puts "Error: " + e.message
-      puts "Backtrace: " + e.backtrace
+      $Project.logMsg(LOG_ERROR | LOG_EXCEPTION, "There was an exception")
+      $Project.logMsg(LOG_ERROR | LOG_EXCEPTION | LOG_DUMP, $Project.dump(e))
+      $Project.logMsg(LOG_ERROR | LOG_EXCEPTION | LOG_DUMP | LOG_DEBUG, $Project.dump(e.backtrace))
     end
 
     puts "procMsg_getContents(): Sending client reply.."
     clientString = clientReply.to_json
     @project.sendToClient(client, clientString)
-    puts "getContents(): Called #{jsonMsg}"
-    puts "Returning:"
-    puts clientReply
   end
 
   def procMsg_getInfo(client, jsonMsg)

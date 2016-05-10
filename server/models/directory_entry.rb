@@ -1,3 +1,5 @@
+DE_PRELOAD = 0x00000001
+
 class DirectoryEntry < ActiveRecord::Base
   # Some really cool ActiveRecord stuff!
   belongs_to :owner, :class_name => "DirectoryEntry", :foreign_type => "DirectoryEntry", :foreign_key => "id"
@@ -10,6 +12,7 @@ class DirectoryEntry < ActiveRecord::Base
     @dirMutex = Mutex.new
     @crdirMutex = Mutex.new
     @createFileMutex = Mutex.new
+    @flags = 0
   end
 
   def create
@@ -294,7 +297,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
     end
     $Project.logMsg(LOG_INFO | LOG_VERBOSE, "Unable to find directory #{srcPath} in the database")
     $Project.logMsg(LOG_FRETURN, "Exiting function, returning false")
-    $Project.logMsg(LOG_FRPARAM, false)
+    $Project.logMsg(LOG_FRPARAM, "Return false")
     return(false)
   end
 
@@ -362,7 +365,7 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
         $Project.logMsg(LOG_DEBUG | LOG_DUMP, "DEH find_by_srcpath:\n", $Project.dump(x))
       end
       if (x)
-        if (x.filechanges.count > 0)
+        if ((@flags & DE_PRELOAD == DE_PRELOAD) && x.filechanges.count > 0)
           # The database takes priority over the filesystem, although we may change this once we have a diff system in (so filesystem modifications affect the database)
           $Project.logMsg(LOG_INFO, "Current filechanges.count: " + x.filechanges.count.to_s)
           rval = x.calcCurrent()
@@ -371,6 +374,10 @@ class DirectoryEntryHelper < DirectoryEntryCommandProcessor
 
           $Project.logMsg(LOG_INFO, "Setting data to rval[:data] from calcCurrent()")
           data = rval[:data].encode("UTF-8", invalid: :replace, undef: :replace, replace: '')
+          rval = nil
+        else
+          @Project.logMsg(LOG_INFO, "DE_PRELOAD not set")
+          data = nil
           rval = nil
         end
         if (!@Project.getDocument(fileName))
@@ -1081,7 +1088,7 @@ class FileTreeX < DirectoryEntryHelper
       }
       @Project.sendToClient(client, clientReply.to_json)
     rescue Exception, TypeError, NameError => e
-      STDERR.puts "Rescued from error: #{e}"
+      $Project.logMsg(LOG_ERROR | LOG_EXCEPTION, "Rescued from exception:\n" + $Project.dump(e))
     end
   end
 
